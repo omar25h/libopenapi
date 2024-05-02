@@ -4,6 +4,7 @@
 package v3
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/low"
 	v3 "github.com/pb33f/libopenapi/datamodel/low/v3"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/utils"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -20,7 +22,7 @@ func TestMediaType_MarshalYAMLInline(t *testing.T) {
 	// load the petstore spec
 	data, _ := os.ReadFile("../../../test_specs/petstorev3.json")
 	info, _ := datamodel.ExtractSpecInfo(data)
-	var err []error
+	var err error
 	lowDoc, err = v3.CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
 	if err != nil {
 		panic("broken something")
@@ -28,46 +30,45 @@ func TestMediaType_MarshalYAMLInline(t *testing.T) {
 
 	// create a new document and extract a media type object from it.
 	d := NewDocument(lowDoc)
-	mt := d.Paths.PathItems["/pet"].Put.RequestBody.Content["application/json"]
+	mt := d.Paths.PathItems.GetOrZero("/pet").Put.RequestBody.Content.GetOrZero("application/json")
 
 	// render out the media type
 	yml, _ := mt.Render()
 
 	// the rendered output should be a ref to the media type.
-	op := `schema:
-    $ref: '#/components/schemas/Pet'`
+	op := `schema: {"$ref": "#/components/schemas/Pet"}`
 
 	assert.Equal(t, op, strings.TrimSpace(string(yml)))
 
 	// modify the media type to have an example
-	mt.Example = "testing a nice mutation"
+	mt.Example = utils.CreateStringNode("testing a nice mutation")
 
 	op = `schema:
     required:
-        - name
-        - photoUrls
+        - "name"
+        - "photoUrls"
     type: "object"
     properties:
-        id:
+        "id":
             type: "integer"
             format: "int64"
             example: 10
-        name:
+        "name":
             type: "string"
             example: "doggie"
-        category:
+        "category":
             type: "object"
             properties:
-                id:
+                "id":
                     type: "integer"
                     format: "int64"
                     example: 1
-                name:
+                "name":
                     type: "string"
                     example: "Dogs"
             xml:
                 name: "category"
-        photoUrls:
+        "photoUrls":
             type: "array"
             xml:
                 wrapped: true
@@ -75,27 +76,27 @@ func TestMediaType_MarshalYAMLInline(t *testing.T) {
                 type: "string"
                 xml:
                     name: "photoUrl"
-        tags:
+        "tags":
             type: "array"
             xml:
                 wrapped: true
             items:
                 type: "object"
                 properties:
-                    id:
+                    "id":
                         type: "integer"
                         format: "int64"
-                    name:
+                    "name":
                         type: "string"
                 xml:
                     name: "tag"
-        status:
+        "status":
             type: "string"
             description: "pet status in the store"
             enum:
-                - available
-                - pending
-                - sold
+                - "available"
+                - "pending"
+                - "sold"
     xml:
         name: "pet"
 example: testing a nice mutation`
@@ -103,14 +104,13 @@ example: testing a nice mutation`
 	yml, _ = mt.RenderInline()
 
 	assert.Equal(t, op, strings.TrimSpace(string(yml)))
-
 }
 
 func TestMediaType_MarshalYAML(t *testing.T) {
 	// load the petstore spec
 	data, _ := os.ReadFile("../../../test_specs/petstorev3.json")
 	info, _ := datamodel.ExtractSpecInfo(data)
-	var err []error
+	var err error
 	lowDoc, err = v3.CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
 	if err != nil {
 		panic("broken something")
@@ -118,28 +118,25 @@ func TestMediaType_MarshalYAML(t *testing.T) {
 
 	// create a new document and extract a media type object from it.
 	d := NewDocument(lowDoc)
-	mt := d.Paths.PathItems["/pet"].Put.RequestBody.Content["application/json"]
+	mt := d.Paths.PathItems.GetOrZero("/pet").Put.RequestBody.Content.GetOrZero("application/json")
 
 	// render out the media type
 	yml, _ := mt.Render()
 
 	// the rendered output should be a ref to the media type.
-	op := `schema:
-    $ref: '#/components/schemas/Pet'`
+	op := `schema: {"$ref": "#/components/schemas/Pet"}`
 
 	assert.Equal(t, op, strings.TrimSpace(string(yml)))
 
 	// modify the media type to have an example
-	mt.Example = "testing a nice mutation"
+	mt.Example = utils.CreateStringNode("testing a nice mutation")
 
-	op = `schema:
-    $ref: '#/components/schemas/Pet'
+	op = `schema: {"$ref": "#/components/schemas/Pet"}
 example: testing a nice mutation`
 
 	yml, _ = mt.Render()
 
 	assert.Equal(t, op, strings.TrimSpace(string(yml)))
-
 }
 
 func TestMediaType_Examples(t *testing.T) {
@@ -161,7 +158,7 @@ func TestMediaType_Examples(t *testing.T) {
 
 	var n v3.MediaType
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	r := NewMediaType(&n)
 

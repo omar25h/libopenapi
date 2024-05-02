@@ -79,8 +79,8 @@ produces:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -108,8 +108,8 @@ produces:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -137,8 +137,8 @@ basePath: /api`
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -168,8 +168,8 @@ info:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -194,8 +194,8 @@ info:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -221,8 +221,8 @@ info:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(rDoc, lDoc)
@@ -248,8 +248,8 @@ externalDocs:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -271,8 +271,8 @@ externalDocs:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -296,8 +296,8 @@ externalDocs:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(rDoc, lDoc)
@@ -335,8 +335,8 @@ security:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -370,8 +370,8 @@ security:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -403,8 +403,8 @@ definitions:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -436,8 +436,8 @@ securityDefinitions:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -464,8 +464,8 @@ securityDefinitions:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -501,8 +501,8 @@ parameters:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -533,8 +533,8 @@ parameters:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -570,8 +570,8 @@ responses:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -601,8 +601,8 @@ responses:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -634,8 +634,8 @@ paths:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -665,8 +665,8 @@ paths:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -698,8 +698,8 @@ paths:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -728,8 +728,8 @@ tags:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -758,8 +758,8 @@ tags:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v2.CreateDocument(siLeft)
-	rDoc, _ := v2.CreateDocument(siRight)
+	lDoc, _ := v2.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v2.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -783,8 +783,8 @@ jsonSchemaDialect: https://pb33f.io/schema`
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(&lDoc, &rDoc)
@@ -794,7 +794,6 @@ jsonSchemaDialect: https://pb33f.io/schema`
 }
 
 func TestCompareDocuments_OpenAPI_BaseProperties_Modified(t *testing.T) {
-
 	left := `openapi: 3.1
 x-diet: tough
 jsonSchemaDialect: https://pb33f.io/schema`
@@ -811,8 +810,8 @@ jsonSchemaDialect: https://pb33f.io/schema/changed`
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -823,7 +822,6 @@ jsonSchemaDialect: https://pb33f.io/schema/changed`
 }
 
 func TestCompareDocuments_OpenAPI_AddComponents(t *testing.T) {
-
 	left := `openapi: 3.1`
 
 	right := `openapi: 3.1
@@ -840,8 +838,8 @@ components:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -853,7 +851,6 @@ components:
 }
 
 func TestCompareDocuments_OpenAPI_Removed(t *testing.T) {
-
 	left := `openapi: 3.1`
 
 	right := `openapi: 3.1
@@ -870,8 +867,8 @@ components:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(rDoc, lDoc)
@@ -883,7 +880,6 @@ components:
 }
 
 func TestCompareDocuments_OpenAPI_ModifyPaths(t *testing.T) {
-
 	left := `openapi: 3.1
 paths:
   /brown/cow:
@@ -910,8 +906,8 @@ paths:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -922,7 +918,6 @@ paths:
 }
 
 func TestCompareDocuments_OpenAPI_Identical_Security(t *testing.T) {
-
 	left := `openapi: 3.1
 security:
   - cakes:
@@ -949,8 +944,8 @@ security:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -958,7 +953,6 @@ security:
 }
 
 func TestCompareDocuments_OpenAPI_ModifyComponents(t *testing.T) {
-
 	left := `openapi: 3.1
 components:
   schemas:
@@ -983,8 +977,8 @@ components:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -995,7 +989,6 @@ components:
 }
 
 func TestCompareDocuments_OpenAPI_ModifyServers(t *testing.T) {
-
 	left := `openapi: 3.1
 servers:
   - url: https://pb33f.io
@@ -1015,8 +1008,8 @@ servers:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -1027,7 +1020,6 @@ servers:
 }
 
 func TestCompareDocuments_OpenAPI_ModifyExamples(t *testing.T) {
-
 	left := `openapi: 3.1
 components:
   examples:
@@ -1050,8 +1042,8 @@ components:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -1062,7 +1054,6 @@ components:
 }
 
 func TestCompareDocuments_OpenAPI_ModifyWebhooks(t *testing.T) {
-
 	left := `openapi: 3.1
 webhooks:
   bHook:
@@ -1089,8 +1080,8 @@ webhooks:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -1133,8 +1124,8 @@ paths:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
@@ -1176,10 +1167,17 @@ paths:
 	siLeft, _ := datamodel.ExtractSpecInfo([]byte(left))
 	siRight, _ := datamodel.ExtractSpecInfo([]byte(right))
 
-	lDoc, _ := v3.CreateDocument(siLeft)
-	rDoc, _ := v3.CreateDocument(siRight)
+	lDoc, _ := v3.CreateDocumentFromConfig(siLeft, datamodel.NewDocumentConfiguration())
+	rDoc, _ := v3.CreateDocumentFromConfig(siRight, datamodel.NewDocumentConfiguration())
 
 	// compare.
 	extChanges := CompareDocuments(lDoc, rDoc)
 	assert.Nil(t, extChanges)
+}
+
+func TestDocumentChanges_Nil(t *testing.T) {
+	var dc *DocumentChanges
+	assert.Equal(t, 0, dc.TotalChanges())
+	assert.Equal(t, 0, dc.TotalBreakingChanges())
+	assert.Nil(t, dc.GetAllChanges())
 }

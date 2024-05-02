@@ -4,15 +4,16 @@
 package v3
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/pb33f/libopenapi/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -24,48 +25,75 @@ import (
 // constraints.
 //   - https://spec.openapis.org/oas/v3.1.0#paths-object
 type Paths struct {
-	PathItems  map[low.KeyReference[string]]low.ValueReference[*PathItem]
-	Extensions map[low.KeyReference[string]]low.ValueReference[any]
+	PathItems  *orderedmap.Map[low.KeyReference[string], low.ValueReference[*PathItem]]
+	Extensions *orderedmap.Map[low.KeyReference[string], low.ValueReference[*yaml.Node]]
+	KeyNode    *yaml.Node
+	RootNode   *yaml.Node
 	*low.Reference
 }
 
 // FindPath will attempt to locate a PathItem using the provided path string.
-func (p *Paths) FindPath(path string) *low.ValueReference[*PathItem] {
-	for k, j := range p.PathItems {
-		if k.Value == path {
-			return &j
+func (p *Paths) FindPath(path string) (result *low.ValueReference[*PathItem]) {
+	for pair := orderedmap.First(p.PathItems); pair != nil; pair = pair.Next() {
+		if pair.Key().Value == path {
+			result = pair.ValuePtr()
+			break
 		}
 	}
-	return nil
+	return result
 }
 
 // FindPathAndKey attempts to locate a PathItem instance, given a path key.
-func (p *Paths) FindPathAndKey(path string) (*low.KeyReference[string], *low.ValueReference[*PathItem]) {
-	for k, j := range p.PathItems {
-		if k.Value == path {
-			return &k, &j
+func (p *Paths) FindPathAndKey(path string) (key *low.KeyReference[string], value *low.ValueReference[*PathItem]) {
+	for pair := orderedmap.First(p.PathItems); pair != nil; pair = pair.Next() {
+		if pair.Key().Value == path {
+			key = pair.KeyPtr()
+			value = pair.ValuePtr()
+			break
 		}
 	}
-	return nil, nil
+	return key, value
 }
 
 // FindExtension will attempt to locate an extension using the specified string.
-func (p *Paths) FindExtension(ext string) *low.ValueReference[any] {
-	return low.FindItemInMap[any](ext, p.Extensions)
+func (p *Paths) FindExtension(ext string) *low.ValueReference[*yaml.Node] {
+	return low.FindItemInOrderedMap(ext, p.Extensions)
 }
 
 // GetExtensions returns all Paths extensions and satisfies the low.HasExtensions interface.
-func (p *Paths) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (p *Paths) GetExtensions() *orderedmap.Map[low.KeyReference[string], low.ValueReference[*yaml.Node]] {
 	return p.Extensions
 }
 
 // Build will extract extensions and all PathItems. This happens asynchronously for speed.
-func (p *Paths) Build(_, root *yaml.Node, idx *index.SpecIndex) error {
+func (p *Paths) Build(ctx context.Context, keyNode, root *yaml.Node, idx *index.SpecIndex) error {
 	root = utils.NodeAlias(root)
+	p.KeyNode = keyNode
+	p.RootNode = root
 	utils.CheckForMergeNodes(root)
 	p.Reference = new(low.Reference)
 	p.Extensions = low.ExtractExtensions(root)
 
+	pathsMap, err := extractPathItemsMap(ctx, root, idx)
+	if err != nil {
+		return err
+	}
+
+	p.PathItems = pathsMap
+	return nil
+}
+
+// Hash will return a consistent SHA256 Hash of the PathItem object
+func (p *Paths) Hash() [32]byte {
+	var f []string
+	for pair := orderedmap.First(orderedmap.SortAlpha(p.PathItems)); pair != nil; pair = pair.Next() {
+		f = append(f, fmt.Sprintf("%s-%s", pair.Key().Value, low.GenerateHashString(pair.Value().Value)))
+	}
+	f = append(f, low.HashExtensions(p.Extensions)...)
+	return sha256.Sum256([]byte(strings.Join(f, "|")))
+}
+
+func extractPathItemsMap(ctx context.Context, root *yaml.Node, idx *index.SpecIndex) (*orderedmap.Map[low.KeyReference[string], low.ValueReference[*PathItem]], error) {
 	// Translate YAML nodes to pathsMap using `TranslatePipeline`.
 	type buildResult struct {
 		key   low.KeyReference[string]
@@ -75,7 +103,7 @@ func (p *Paths) Build(_, root *yaml.Node, idx *index.SpecIndex) error {
 		currentNode *yaml.Node
 		pathNode    *yaml.Node
 	}
-	pathsMap := make(map[low.KeyReference[string]]low.ValueReference[*PathItem])
+	pathsMap := orderedmap.New[low.KeyReference[string], low.ValueReference[*PathItem]]()
 	in := make(chan buildInput)
 	out := make(chan buildResult)
 	done := make(chan struct{})
@@ -122,7 +150,7 @@ func (p *Paths) Build(_, root *yaml.Node, idx *index.SpecIndex) error {
 			if !ok {
 				break
 			}
-			pathsMap[result.key] = result.value
+			pathsMap.Set(result.key, result.value)
 		}
 		close(done)
 		wg.Done()
@@ -133,32 +161,31 @@ func (p *Paths) Build(_, root *yaml.Node, idx *index.SpecIndex) error {
 			pNode := value.pathNode
 			cNode := value.currentNode
 
+			foundContext := ctx
 			if ok, _, _ := utils.IsNodeRefValue(pNode); ok {
-				r, err := low.LocateRefNode(pNode, idx)
+				r, _, err, fCtx := low.LocateRefNodeWithContext(ctx, pNode, idx)
 				if r != nil {
 					pNode = r
-					if r.Tag == "" {
-						// If it's a node from file, tag is empty
-						// If it's a reference we need to extract actual operation node
-						pNode = r.Content[0]
-					}
-
+					foundContext = fCtx
 					if err != nil {
 						if !idx.AllowCircularReferenceResolving() {
 							return buildResult{}, fmt.Errorf("path item build failed: %s", err.Error())
 						}
 					}
 				} else {
-					return buildResult{}, fmt.Errorf("path item build failed: cannot find reference: %s at line %d, col %d",
+					return buildResult{}, fmt.Errorf("path item build failed: cannot find reference: '%s' at line %d, col %d",
 						pNode.Content[1].Value, pNode.Content[1].Line, pNode.Content[1].Column)
 				}
 			}
 
 			path := new(PathItem)
 			_ = low.BuildModel(pNode, path)
-			err := path.Build(cNode, pNode, idx)
+			err := path.Build(foundContext, cNode, pNode, idx)
 			if err != nil {
-				return buildResult{}, err
+				if idx != nil && idx.GetLogger() != nil {
+					idx.GetLogger().Error(fmt.Sprintf("error building path item: %s", err.Error()))
+				}
+				// return buildResult{}, err
 			}
 
 			return buildResult{
@@ -175,35 +202,7 @@ func (p *Paths) Build(_, root *yaml.Node, idx *index.SpecIndex) error {
 	)
 	wg.Wait()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	p.PathItems = pathsMap
-	return nil
-}
-
-// Hash will return a consistent SHA256 Hash of the PathItem object
-func (p *Paths) Hash() [32]byte {
-	var f []string
-	l := make([]string, len(p.PathItems))
-	keys := make(map[string]low.ValueReference[*PathItem])
-	z := 0
-	for k := range p.PathItems {
-		keys[k.Value] = p.PathItems[k]
-		l[z] = k.Value
-		z++
-	}
-	sort.Strings(l)
-	for k := range l {
-		f = append(f, fmt.Sprintf("%s-%s", l[k], low.GenerateHashString(keys[l[k]].Value)))
-	}
-	ekeys := make([]string, len(p.Extensions))
-	z = 0
-	for k := range p.Extensions {
-		ekeys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(p.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(ekeys)
-	f = append(f, ekeys...)
-	return sha256.Sum256([]byte(strings.Join(f, "|")))
+	return pathsMap, nil
 }

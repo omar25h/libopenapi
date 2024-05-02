@@ -1,20 +1,19 @@
 package utils
 
 import (
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 	"os"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 type petstore []byte
 
 var once sync.Once
 
-var (
-	psBytes petstore
-)
+var psBytes petstore
 
 func getPetstore() petstore {
 	once.Do(func() {
@@ -100,13 +99,11 @@ func TestFindLastChildNode_TooDeep(t *testing.T) {
 }
 
 func TestBuildPath(t *testing.T) {
-
 	assert.Equal(t, "$.fresh.fish.and.chicken.nuggets",
 		BuildPath("$.fresh.fish", []string{"and", "chicken", "nuggets"}))
 }
 
 func TestBuildPath_WithTrailingPeriod(t *testing.T) {
-
 	assert.Equal(t, "$.fresh.fish.and.chicken.nuggets",
 		BuildPath("$.fresh.fish", []string{"and", "chicken", "nuggets", ""}))
 }
@@ -133,6 +130,42 @@ func TestConvertInterfaceIntoStringMap(t *testing.T) {
 	d = n
 	parsed := ConvertInterfaceIntoStringMap(d)
 	assert.Equal(t, "baby girl", parsed["melody"])
+}
+
+func TestConvertInterfaceIntoStringMap_Float64(t *testing.T) {
+	var d interface{}
+	n := make(map[string]interface{})
+	n["melody"] = 5.9
+	d = n
+	parsed := ConvertInterfaceIntoStringMap(d)
+	assert.Equal(t, "5.9", parsed["melody"])
+}
+
+func TestConvertInterfaceIntoStringMap_Bool(t *testing.T) {
+	var d interface{}
+	n := make(map[string]interface{})
+	n["melody"] = true
+	d = n
+	parsed := ConvertInterfaceIntoStringMap(d)
+	assert.Equal(t, "true", parsed["melody"])
+}
+
+func TestConvertInterfaceIntoStringMap_int64(t *testing.T) {
+	var d interface{}
+	n := make(map[string]interface{})
+	n["melody"] = int64(12345)
+	d = n
+	parsed := ConvertInterfaceIntoStringMap(d)
+	assert.Equal(t, "12345", parsed["melody"])
+}
+
+func TestConvertInterfaceIntoStringMap_int(t *testing.T) {
+	var d interface{}
+	n := make(map[string]interface{})
+	n["melody"] = 12345
+	d = n
+	parsed := ConvertInterfaceIntoStringMap(d)
+	assert.Equal(t, "12345", parsed["melody"])
 }
 
 func TestConvertInterfaceIntoStringMap_NoType(t *testing.T) {
@@ -168,8 +201,7 @@ func TestConvertInterfaceToStringArray_NoType(t *testing.T) {
 }
 
 func TestConvertInterfaceToStringArray_Invalid(t *testing.T) {
-	var d interface{}
-	d = "I am a carrot"
+	var d interface{} = "I am a carrot"
 	parsed := ConvertInterfaceToStringArray(d)
 	assert.Nil(t, parsed)
 }
@@ -195,8 +227,7 @@ func TestConvertInterfaceArrayToStringArray_NoType(t *testing.T) {
 }
 
 func TestConvertInterfaceArrayToStringArray_Invalid(t *testing.T) {
-	var d interface{}
-	d = "weed is good"
+	var d interface{} = "weed is good"
 	parsed := ConvertInterfaceArrayToStringArray(d)
 	assert.Nil(t, parsed)
 }
@@ -229,12 +260,11 @@ func TestExtractValueFromInterfaceMap_Flat(t *testing.T) {
 	m["maddy"] = "niblet"
 	d = m
 	parsed := ExtractValueFromInterfaceMap("maddy", d)
-	assert.Equal(t, "niblet", parsed.(interface{}))
+	assert.Equal(t, "niblet", parsed)
 }
 
 func TestExtractValueFromInterfaceMap_NotFound(t *testing.T) {
-	var d interface{}
-	d = "not a map"
+	var d interface{} = "not a map"
 	parsed := ExtractValueFromInterfaceMap("melody", d)
 	assert.Nil(t, parsed)
 }
@@ -261,7 +291,6 @@ func TestFindFirstKeyNode_TooDeep(t *testing.T) {
 }
 
 func TestFindFirstKeyNode_ValueIsKey(t *testing.T) {
-
 	a := &yaml.Node{
 		Value: "chicken",
 	}
@@ -301,7 +330,6 @@ func TestFindKeyNodeTopSingleNode(t *testing.T) {
 	c, k := FindKeyNodeTop("chicken", []*yaml.Node{a})
 	assert.Equal(t, "chicken", c.Value)
 	assert.Equal(t, "chicken", k.Value)
-
 }
 
 func TestFindKeyNodeTop_NotFound(t *testing.T) {
@@ -319,8 +347,19 @@ func TestFindKeyNode(t *testing.T) {
 	assert.Equal(t, 47, k.Line)
 }
 
-func TestFindKeyNode_ValueIsKey(t *testing.T) {
+func TestFindKeyNodeOffByOne(t *testing.T) {
+	k, v := FindKeyNode("key", []*yaml.Node{
+		{
+			Value: "key",
+			Line:  999,
+		},
+	})
+	assert.NotNil(t, k)
+	assert.NotNil(t, v)
+	assert.Equal(t, 999, k.Line)
+}
 
+func TestFindKeyNode_ValueIsKey(t *testing.T) {
 	a := &yaml.Node{
 		Value: "chicken",
 	}
@@ -352,11 +391,9 @@ func TestFindKeyNode_ValueIsKey(t *testing.T) {
 	c, d = FindKeyNode("pie", []*yaml.Node{b, a})
 	assert.Equal(t, "nuggets", c.Value)
 	assert.Equal(t, "pie", d.Value)
-
 }
 
 func TestFindExtensionNodes(t *testing.T) {
-
 	a := &yaml.Node{
 		Value: "x-coffee",
 	}
@@ -369,11 +406,9 @@ func TestFindExtensionNodes(t *testing.T) {
 	exts := FindExtensionNodes(c.Content)
 	assert.Len(t, exts, 1)
 	assert.Equal(t, "required", exts[0].Value.Value)
-
 }
 
 func TestFindKeyNodeFull(t *testing.T) {
-
 	a := &yaml.Node{
 		Value: "fish",
 	}
@@ -387,8 +422,18 @@ func TestFindKeyNodeFull(t *testing.T) {
 	assert.Equal(t, "paste", e.Value)
 }
 
-func TestFindKeyNodeFull_MapValueIsLastNode(t *testing.T) {
+func TestFindKeyNodeFull_NoValue(t *testing.T) {
+	a := &yaml.Node{
+		Value: "openapi",
+	}
 
+	c, d, e := FindKeyNodeFull("openapi", []*yaml.Node{a})
+	assert.Equal(t, "openapi", c.Value)
+	assert.Equal(t, "openapi", d.Value)
+	assert.Equal(t, "openapi", e.Value)
+}
+
+func TestFindKeyNodeFull_MapValueIsLastNode(t *testing.T) {
 	f := &yaml.Node{
 		Value: "cheese",
 	}
@@ -405,7 +450,6 @@ func TestFindKeyNodeFull_MapValueIsLastNode(t *testing.T) {
 }
 
 func TestFindKeyNodeFull_Map(t *testing.T) {
-
 	f := &yaml.Node{
 		Value: "cheese",
 	}
@@ -422,11 +466,9 @@ func TestFindKeyNodeFull_Map(t *testing.T) {
 	assert.Equal(t, "deserts", c.Value)
 	assert.Equal(t, "cheese", d.Value)
 	assert.Equal(t, "cake", e.Value)
-
 }
 
 func TestFindKeyNodeFull_Array(t *testing.T) {
-
 	f := &yaml.Node{
 		Value: "cheese",
 	}
@@ -443,7 +485,6 @@ func TestFindKeyNodeFull_Array(t *testing.T) {
 	assert.Equal(t, "deserts", c.Value)
 	assert.Equal(t, "cheese", d.Value)
 	assert.Equal(t, "cheese", e.Value)
-
 }
 
 func TestFindKeyNodeFull_Nothing(t *testing.T) {
@@ -648,19 +689,6 @@ func TestConvertYAMLtoJSON(t *testing.T) {
 	assert.Nil(t, str)
 }
 
-func TestConvertYAMLtoJSONPretty(t *testing.T) {
-	str, err := ConvertYAMLtoJSONPretty([]byte("hello: there"), "", "  ")
-	assert.NoError(t, err)
-	assert.NotNil(t, str)
-	assert.Equal(t, "{\n  \"hello\": \"there\"\n}", string(str))
-
-}
-
-func TestConvertYAMLtoJSONPrettyError(t *testing.T) {
-	_, err := ConvertYAMLtoJSONPretty([]byte("BAD"), "", "  ")
-	assert.Error(t, err)
-}
-
 func TestIsHttpVerb(t *testing.T) {
 	assert.True(t, IsHttpVerb("get"))
 	assert.True(t, IsHttpVerb("post"))
@@ -677,13 +705,20 @@ func TestConvertComponentIdIntoFriendlyPathSearch_SuperCrazy(t *testing.T) {
 	segment, path := ConvertComponentIdIntoFriendlyPathSearch("#/paths/~1crazy~1ass~1references/get/responses/404/content/application~1xml;%20charset=utf-8/schema")
 	assert.Equal(t, "$.paths['/crazy/ass/references'].get.responses['404'].content['application/xml; charset=utf-8'].schema", path)
 	assert.Equal(t, "schema", segment)
-
 }
 
 func TestConvertComponentIdIntoFriendlyPathSearch_Crazy(t *testing.T) {
 	segment, path := ConvertComponentIdIntoFriendlyPathSearch("#/components/schemas/gpg-key/properties/subkeys/example/0/expires_at")
 	assert.Equal(t, "$.components.schemas.gpg-key.properties.subkeys.example[0].expires_at", path)
 	assert.Equal(t, "expires_at", segment)
+}
+
+func BenchmarkConvertComponentIdIntoFriendlyPathSearch_Crazy(t *testing.B) {
+	for n := 0; n < t.N; n++ {
+		segment, path := ConvertComponentIdIntoFriendlyPathSearch("#/components/schemas/gpg-key/properties/subkeys/example/0/expires_at")
+		assert.Equal(t, "$.components.schemas.gpg-key.properties.subkeys.example[0].expires_at", path)
+		assert.Equal(t, "expires_at", segment)
+	}
 }
 
 func TestConvertComponentIdIntoFriendlyPathSearch_Simple(t *testing.T) {
@@ -758,7 +793,6 @@ func TestDetectCase(t *testing.T) {
 }
 
 func TestIsNodeRefValue(t *testing.T) {
-
 	f := &yaml.Node{
 		Value: "$ref",
 	}
@@ -775,11 +809,9 @@ func TestIsNodeRefValue(t *testing.T) {
 	assert.True(t, ref)
 	assert.Equal(t, "$ref", node.Value)
 	assert.Equal(t, "'#/somewhere/out-there'", val)
-
 }
 
 func TestIsNodeAlias(t *testing.T) {
-
 	yml := `things:
   &anchorA
   - Stuff
@@ -793,11 +825,9 @@ thangs: *anchorA`
 
 	assert.True(t, a)
 	assert.Len(t, ref.Content, 2)
-
 }
 
 func TestNodeAlias(t *testing.T) {
-
 	yml := `things:
   &anchorA
   - Stuff
@@ -810,7 +840,6 @@ thangs: *anchorA`
 	ref := NodeAlias(node.Content[0].Content[3])
 
 	assert.Len(t, ref.Content, 2)
-
 }
 
 func TestNodeAlias_Nil(t *testing.T) {
@@ -819,14 +848,11 @@ func TestNodeAlias_Nil(t *testing.T) {
 }
 
 func TestNodeAlias_IsNodeAlias_Nil(t *testing.T) {
-
 	_, isAlias := IsNodeAlias(nil)
 	assert.False(t, isAlias)
-
 }
 
 func TestNodeAlias_IsNodeAlias_False(t *testing.T) {
-
 	yml := `things:
   - Stuff
   - Junk
@@ -837,11 +863,9 @@ thangs: none`
 
 	_, isAlias := IsNodeAlias(node.Content[0].Content[3])
 	assert.False(t, isAlias)
-
 }
 
 func TestCheckForMergeNodes(t *testing.T) {
-
 	yml := `x-common-definitions:
   life_cycle_types: &life_cycle_types_def
     type: string
@@ -861,7 +885,6 @@ func TestCheckForMergeNodes(t *testing.T) {
 
 	assert.Equal(t, "The type of life cycle", descriptionVal.Value)
 	assert.Len(t, enumVal.Content, 3)
-
 }
 
 func TestCheckForMergeNodes_Empty_NoPanic(t *testing.T) {
@@ -869,7 +892,6 @@ func TestCheckForMergeNodes_Empty_NoPanic(t *testing.T) {
 }
 
 func TestIsNodeRefValue_False(t *testing.T) {
-
 	f := &yaml.Node{
 		Value: "woof",
 	}
@@ -889,7 +911,6 @@ func TestIsNodeRefValue_False(t *testing.T) {
 }
 
 func TestIsNodeRefValue_Nil(t *testing.T) {
-
 	ref, node, val := IsNodeRefValue(nil)
 
 	assert.False(t, ref)
@@ -902,7 +923,6 @@ func TestCheckEnumForDuplicates_Success(t *testing.T) {
 	var rootNode yaml.Node
 	_ = yaml.Unmarshal([]byte(yml), &rootNode)
 	assert.Len(t, CheckEnumForDuplicates(rootNode.Content[0].Content), 0)
-
 }
 
 func TestCheckEnumForDuplicates_Fail(t *testing.T) {
@@ -910,7 +930,6 @@ func TestCheckEnumForDuplicates_Fail(t *testing.T) {
 	var rootNode yaml.Node
 	_ = yaml.Unmarshal([]byte(yml), &rootNode)
 	assert.Len(t, CheckEnumForDuplicates(rootNode.Content[0].Content), 1)
-
 }
 
 func TestCheckEnumForDuplicates_FailMultiple(t *testing.T) {
@@ -940,4 +959,21 @@ func TestDetermineJSONWhitespaceLength(t *testing.T) {
 func TestDetermineJSONWhitespaceLength_None(t *testing.T) {
 	someBytes := []byte(`{"hello": "world"}`)
 	assert.Equal(t, 0, DetermineWhitespaceLength(string(someBytes)))
+}
+
+func TestTimeoutFind(t *testing.T) {
+	a := &yaml.Node{
+		Value: "chicken",
+	}
+	b := &yaml.Node{
+		Value: "nuggets",
+	}
+
+	// loopy loop.
+	a.Content = append(a.Content, b)
+	b.Content = append(b.Content, a)
+
+	nodes, err := FindNodesWithoutDeserializing(a, "$..nuggets")
+	assert.Error(t, err)
+	assert.Nil(t, nodes)
 }

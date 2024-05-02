@@ -4,15 +4,17 @@
 package v2
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestResponses_Build_Response(t *testing.T) {
-
 	yml := `- $ref: break`
 
 	var idxNode yaml.Node
@@ -24,13 +26,11 @@ func TestResponses_Build_Response(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestResponses_Build_Response_Default(t *testing.T) {
-
 	yml := `default:
   $ref: break`
 
@@ -43,13 +43,11 @@ func TestResponses_Build_Response_Default(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestResponses_Build_WrongType(t *testing.T) {
-
 	yml := `- $ref: break`
 
 	var idxNode yaml.Node
@@ -61,13 +59,11 @@ func TestResponses_Build_WrongType(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestResponses_Hash(t *testing.T) {
-
 	yml := `default:
   description: I am a potato
 200:
@@ -88,7 +84,7 @@ x-tea: warm
 
 	var n Responses
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	yml2 := `401:
   description: and you are?
@@ -110,10 +106,9 @@ x-tea: warm`
 
 	var n2 Responses
 	_ = low.BuildModel(idxNode2.Content[0], &n2)
-	_ = n2.Build(nil, idxNode2.Content[0], idx2)
+	_ = n2.Build(context.Background(), nil, idxNode2.Content[0], idx2)
 
 	// hash
 	assert.Equal(t, n.Hash(), n2.Hash())
-	assert.Len(t, n.GetExtensions(), 1)
-
+	assert.Equal(t, 1, orderedmap.Len(n.GetExtensions()))
 }

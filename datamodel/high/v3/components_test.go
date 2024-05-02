@@ -4,38 +4,41 @@
 package v3
 
 import (
+	"context"
+	"strings"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	v3 "github.com/pb33f/libopenapi/datamodel/low/v3"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
+	"github.com/pb33f/libopenapi/utils"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"strings"
-	"testing"
 )
 
 func TestComponents_MarshalYAML(t *testing.T) {
-
 	comp := &Components{
-		Responses: map[string]*Response{
+		Responses: orderedmap.ToOrderedMap(map[string]*Response{
 			"200": {
 				Description: "OK",
 			},
-		},
-		Parameters: map[string]*Parameter{
+		}),
+		Parameters: orderedmap.ToOrderedMap(map[string]*Parameter{
 			"id": {
 				Name: "id",
 				In:   "path",
 			},
-		},
-		RequestBodies: map[string]*RequestBody{
+		}),
+		RequestBodies: orderedmap.ToOrderedMap(map[string]*RequestBody{
 			"body": {
-				Content: map[string]*MediaType{
+				Content: orderedmap.ToOrderedMap(map[string]*MediaType{
 					"application/json": {
-						Example: "why?",
+						Example: utils.CreateStringNode("why?"),
 					},
-				},
+				}),
 			},
-		},
+		}),
 	}
 
 	dat, _ := comp.Render()
@@ -46,7 +49,7 @@ func TestComponents_MarshalYAML(t *testing.T) {
 
 	var n v3.Components
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), idxNode.Content[0], idx)
 
 	r := NewComponents(&n)
 

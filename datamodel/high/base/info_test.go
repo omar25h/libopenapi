@@ -4,11 +4,14 @@
 package base
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
 	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/orderedmap"
+	"github.com/pb33f/libopenapi/utils"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -32,9 +35,12 @@ x-cli-name: chicken cli`
 
 	var lowInfo lowbase.Info
 	_ = lowmodel.BuildModel(cNode.Content[0], &lowInfo)
-	_ = lowInfo.Build(nil, cNode.Content[0], nil)
+	_ = lowInfo.Build(context.Background(), nil, cNode.Content[0], nil)
 
 	highInfo := NewInfo(&lowInfo)
+
+	var xCliName string
+	_ = highInfo.Extensions.GetOrZero("x-cli-name").Decode(&xCliName)
 
 	assert.Equal(t, "chicken", highInfo.Title)
 	assert.Equal(t, "a chicken nugget", highInfo.Summary)
@@ -44,7 +50,7 @@ x-cli-name: chicken cli`
 	assert.Equal(t, "pb33f", highInfo.License.Name)
 	assert.Equal(t, "https://pb33f.io", highInfo.License.URL)
 	assert.Equal(t, "99.99", highInfo.Version)
-	assert.Equal(t, "chicken cli", highInfo.Extensions["x-cli-name"])
+	assert.Equal(t, "chicken cli", xCliName)
 
 	wentLow := highInfo.GoLow()
 	assert.Equal(t, 10, wentLow.Version.ValueNode.Line)
@@ -74,7 +80,7 @@ version: 1.2.3`
 	// build out the low-level model
 	var lowInfo lowbase.Info
 	_ = lowmodel.BuildModel(&node, &lowInfo)
-	_ = lowInfo.Build(nil, node.Content[0], nil)
+	_ = lowInfo.Build(context.Background(), nil, node.Content[0], nil)
 
 	// build the high level model
 	highInfo := NewInfo(&lowInfo)
@@ -97,7 +103,7 @@ url: https://opensource.org/licenses/MIT`
 	// build out the low-level model
 	var lowLicense lowbase.License
 	_ = lowmodel.BuildModel(node.Content[0], &lowLicense)
-	_ = lowLicense.Build(nil, node.Content[0], nil)
+	_ = lowLicense.Build(context.Background(), nil, node.Content[0], nil)
 
 	// build the high level model
 	highLicense := NewLicense(&lowLicense)
@@ -108,13 +114,12 @@ url: https://opensource.org/licenses/MIT`
 }
 
 func TestInfo_Render(t *testing.T) {
-
-	ext := make(map[string]any)
-	ext["x-pizza"] = "pepperoni"
-	ext["x-cake"] = &License{
+	ext := orderedmap.New[string, *yaml.Node]()
+	ext.Set("x-pizza", utils.CreateStringNode("pepperoni"))
+	ext.Set("x-cake", utils.CreateYamlNode(&License{
 		Name: "someone",
 		URL:  "nowhere",
-	}
+	}))
 	highI := &Info{
 		Title:          "hey",
 		Description:    "there you",
@@ -140,10 +145,13 @@ func TestInfo_Render(t *testing.T) {
 	// build low
 	var lowInfo lowbase.Info
 	_ = lowmodel.BuildModel(cNode.Content[0], &lowInfo)
-	_ = lowInfo.Build(nil, cNode.Content[0], nil)
+	_ = lowInfo.Build(context.Background(), nil, cNode.Content[0], nil)
 
 	// build high
 	highInfo := NewInfo(&lowInfo)
+
+	var xPizza string
+	_ = highInfo.Extensions.GetOrZero("x-pizza").Decode(&xPizza)
 
 	assert.Equal(t, "hey", highInfo.Title)
 	assert.Equal(t, "there you", highInfo.Description)
@@ -153,12 +161,11 @@ func TestInfo_Render(t *testing.T) {
 	assert.Equal(t, "MIT", highInfo.License.Name)
 	assert.Equal(t, "https://opensource.org/licenses/MIT", highInfo.License.URL)
 	assert.Equal(t, "1.2.3", highInfo.Version)
-	assert.Equal(t, "pepperoni", highInfo.Extensions["x-pizza"])
+	assert.Equal(t, "pepperoni", xPizza)
 	assert.NotNil(t, highInfo.GoLowUntyped())
 }
 
 func TestInfo_RenderOrder(t *testing.T) {
-
 	yml := `title: hey
 description: there you
 termsOfService: have you got any money
@@ -181,10 +188,13 @@ x-cake:
 	// build low
 	var lowInfo lowbase.Info
 	_ = lowmodel.BuildModel(cNode.Content[0], &lowInfo)
-	_ = lowInfo.Build(nil, cNode.Content[0], nil)
+	_ = lowInfo.Build(context.Background(), nil, cNode.Content[0], nil)
 
 	// build high
 	highInfo := NewInfo(&lowInfo)
+
+	var xPizza string
+	_ = highInfo.Extensions.GetOrZero("x-pizza").Decode(&xPizza)
 
 	assert.Equal(t, "hey", highInfo.Title)
 	assert.Equal(t, "there you", highInfo.Description)
@@ -194,7 +204,7 @@ x-cake:
 	assert.Equal(t, "MIT", highInfo.License.Name)
 	assert.Equal(t, "https://opensource.org/licenses/MIT", highInfo.License.URL)
 	assert.Equal(t, "1.2.3", highInfo.Version)
-	assert.Equal(t, "pepperoni", highInfo.Extensions["x-pizza"])
+	assert.Equal(t, "pepperoni", xPizza)
 
 	// marshal high back to yaml, should be the same as the original, in same order.
 	bytes, _ := highInfo.Render()

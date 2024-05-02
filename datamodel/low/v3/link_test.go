@@ -4,15 +4,17 @@
 package v3
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestLink_Build(t *testing.T) {
-
 	yml := `operationRef: '#/someref'
 operationId: someId
 parameters:
@@ -33,16 +35,16 @@ x-linky: slinky
 	err := low.BuildModel(idxNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "#/someref", n.OperationRef.Value)
 	assert.Equal(t, "someId", n.OperationId.Value)
 	assert.Equal(t, "this is a link object.", n.Description.Value)
 
-	ext := n.FindExtension("x-linky")
-	assert.NotNil(t, ext)
-	assert.Equal(t, "slinky", ext.Value)
+	var xLinky string
+	_ = n.FindExtension("x-linky").Value.Decode(&xLinky)
+	assert.Equal(t, "slinky", xLinky)
 
 	param1 := n.FindParameter("param1")
 	assert.Equal(t, "something", param1.Value)
@@ -51,12 +53,10 @@ x-linky: slinky
 
 	assert.NotNil(t, n.Server.Value)
 	assert.Equal(t, "https://pb33f.io", n.Server.Value.URL.Value)
-	assert.Len(t, n.GetExtensions(), 1)
-
+	assert.Equal(t, 1, orderedmap.Len(n.GetExtensions()))
 }
 
 func TestLink_Build_Fail(t *testing.T) {
-
 	yml := `operationRef: '#/someref'
 operationId: someId
 parameters:
@@ -75,13 +75,11 @@ server:
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestLink_Hash(t *testing.T) {
-
 	yml := `operationRef: something
 operationId: someWhere
 parameters:
@@ -99,7 +97,7 @@ x-mcdonalds: bigmac`
 
 	var n Link
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	yml2 := `parameters:
   bacon: eggs
@@ -118,9 +116,8 @@ server:
 
 	var n2 Link
 	_ = low.BuildModel(idxNode2.Content[0], &n2)
-	_ = n2.Build(nil, idxNode2.Content[0], idx2)
+	_ = n2.Build(context.Background(), nil, idxNode2.Content[0], idx2)
 
 	// hash
 	assert.Equal(t, n.Hash(), n2.Hash())
-
 }

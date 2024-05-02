@@ -4,9 +4,9 @@
 package v3
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 
@@ -14,6 +14,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/pb33f/libopenapi/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -24,16 +25,16 @@ import (
 // will have no effect on the API unless they are explicitly referenced from properties outside the components object.
 //   - https://spec.openapis.org/oas/v3.1.0#components-object
 type Components struct {
-	Schemas         low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.SchemaProxy]]
-	Responses       low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Response]]
-	Parameters      low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Parameter]]
-	Examples        low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]]
-	RequestBodies   low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*RequestBody]]
-	Headers         low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]]
-	SecuritySchemes low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SecurityScheme]]
-	Links           low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Link]]
-	Callbacks       low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Callback]]
-	Extensions      map[low.KeyReference[string]]low.ValueReference[any]
+	Schemas         low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*base.SchemaProxy]]]
+	Responses       low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*Response]]]
+	Parameters      low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*Parameter]]]
+	Examples        low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*base.Example]]]
+	RequestBodies   low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*RequestBody]]]
+	Headers         low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*Header]]]
+	SecuritySchemes low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*SecurityScheme]]]
+	Links           low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*Link]]]
+	Callbacks       low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[*Callback]]]
+	Extensions      *orderedmap.Map[low.KeyReference[string], low.ValueReference[*yaml.Node]]
 	*low.Reference
 }
 
@@ -48,7 +49,7 @@ type componentInput struct {
 }
 
 // GetExtensions returns all Components extensions and satisfies the low.HasExtensions interface.
-func (co *Components) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (co *Components) GetExtensions() *orderedmap.Map[low.KeyReference[string], low.ValueReference[*yaml.Node]] {
 	return co.Extensions
 }
 
@@ -64,84 +65,65 @@ func (co *Components) Hash() [32]byte {
 	generateHashForObjectMap(co.SecuritySchemes.Value, &f)
 	generateHashForObjectMap(co.Links.Value, &f)
 	generateHashForObjectMap(co.Callbacks.Value, &f)
-	keys := make([]string, len(co.Extensions))
-	z := 0
-	for k := range co.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(co.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.HashExtensions(co.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
 
-func generateHashForObjectMap[T any](collection map[low.KeyReference[string]]low.ValueReference[T], hash *[]string) {
-	if collection == nil {
-		return
-	}
-	l := make([]string, len(collection))
-	keys := make(map[string]low.ValueReference[T])
-	z := 0
-	for k := range collection {
-		keys[k.Value] = collection[k]
-		l[z] = k.Value
-		z++
-	}
-	sort.Strings(l)
-	for k := range l {
-		*hash = append(*hash, low.GenerateHashString(keys[l[k]].Value))
+func generateHashForObjectMap[T any](collection *orderedmap.Map[low.KeyReference[string], low.ValueReference[T]], hash *[]string) {
+	for pair := orderedmap.First(orderedmap.SortAlpha(collection)); pair != nil; pair = pair.Next() {
+		*hash = append(*hash, low.GenerateHashString(pair.Value().Value))
 	}
 }
 
 // FindExtension attempts to locate an extension with the supplied key
-func (co *Components) FindExtension(ext string) *low.ValueReference[any] {
-	return low.FindItemInMap[any](ext, co.Extensions)
+func (co *Components) FindExtension(ext string) *low.ValueReference[*yaml.Node] {
+	return low.FindItemInOrderedMap(ext, co.Extensions)
 }
 
 // FindSchema attempts to locate a SchemaProxy from 'schemas' with a specific name
 func (co *Components) FindSchema(schema string) *low.ValueReference[*base.SchemaProxy] {
-	return low.FindItemInMap[*base.SchemaProxy](schema, co.Schemas.Value)
+	return low.FindItemInOrderedMap[*base.SchemaProxy](schema, co.Schemas.Value)
 }
 
 // FindResponse attempts to locate a Response from 'responses' with a specific name
 func (co *Components) FindResponse(response string) *low.ValueReference[*Response] {
-	return low.FindItemInMap[*Response](response, co.Responses.Value)
+	return low.FindItemInOrderedMap[*Response](response, co.Responses.Value)
 }
 
 // FindParameter attempts to locate a Parameter from 'parameters' with a specific name
 func (co *Components) FindParameter(response string) *low.ValueReference[*Parameter] {
-	return low.FindItemInMap[*Parameter](response, co.Parameters.Value)
+	return low.FindItemInOrderedMap[*Parameter](response, co.Parameters.Value)
 }
 
 // FindSecurityScheme attempts to locate a SecurityScheme from 'securitySchemes' with a specific name
 func (co *Components) FindSecurityScheme(sScheme string) *low.ValueReference[*SecurityScheme] {
-	return low.FindItemInMap[*SecurityScheme](sScheme, co.SecuritySchemes.Value)
+	return low.FindItemInOrderedMap[*SecurityScheme](sScheme, co.SecuritySchemes.Value)
 }
 
 // FindExample attempts tp
 func (co *Components) FindExample(example string) *low.ValueReference[*base.Example] {
-	return low.FindItemInMap[*base.Example](example, co.Examples.Value)
+	return low.FindItemInOrderedMap[*base.Example](example, co.Examples.Value)
 }
 
 func (co *Components) FindRequestBody(requestBody string) *low.ValueReference[*RequestBody] {
-	return low.FindItemInMap[*RequestBody](requestBody, co.RequestBodies.Value)
+	return low.FindItemInOrderedMap[*RequestBody](requestBody, co.RequestBodies.Value)
 }
 
 func (co *Components) FindHeader(header string) *low.ValueReference[*Header] {
-	return low.FindItemInMap[*Header](header, co.Headers.Value)
+	return low.FindItemInOrderedMap[*Header](header, co.Headers.Value)
 }
 
 func (co *Components) FindLink(link string) *low.ValueReference[*Link] {
-	return low.FindItemInMap[*Link](link, co.Links.Value)
+	return low.FindItemInOrderedMap[*Link](link, co.Links.Value)
 }
 
 func (co *Components) FindCallback(callback string) *low.ValueReference[*Callback] {
-	return low.FindItemInMap[*Callback](callback, co.Callbacks.Value)
+	return low.FindItemInOrderedMap[*Callback](callback, co.Callbacks.Value)
 }
 
 // Build converts root YAML node containing components to low level model.
 // Process each component in parallel.
-func (co *Components) Build(root *yaml.Node, idx *index.SpecIndex) error {
+func (co *Components) Build(ctx context.Context, root *yaml.Node, idx *index.SpecIndex) error {
 	root = utils.NodeAlias(root)
 	utils.CheckForMergeNodes(root)
 	co.Reference = new(low.Reference)
@@ -161,55 +143,55 @@ func (co *Components) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	}
 
 	go func() {
-		schemas, err := extractComponentValues[*base.SchemaProxy](SchemasLabel, root, idx)
+		schemas, err := extractComponentValues[*base.SchemaProxy](ctx, SchemasLabel, root, idx)
 		captureError(err)
 		co.Schemas = schemas
 		wg.Done()
 	}()
 	go func() {
-		parameters, err := extractComponentValues[*Parameter](ParametersLabel, root, idx)
+		parameters, err := extractComponentValues[*Parameter](ctx, ParametersLabel, root, idx)
 		captureError(err)
 		co.Parameters = parameters
 		wg.Done()
 	}()
 	go func() {
-		responses, err := extractComponentValues[*Response](ResponsesLabel, root, idx)
+		responses, err := extractComponentValues[*Response](ctx, ResponsesLabel, root, idx)
 		captureError(err)
 		co.Responses = responses
 		wg.Done()
 	}()
 	go func() {
-		examples, err := extractComponentValues[*base.Example](base.ExamplesLabel, root, idx)
+		examples, err := extractComponentValues[*base.Example](ctx, base.ExamplesLabel, root, idx)
 		captureError(err)
 		co.Examples = examples
 		wg.Done()
 	}()
 	go func() {
-		requestBodies, err := extractComponentValues[*RequestBody](RequestBodiesLabel, root, idx)
+		requestBodies, err := extractComponentValues[*RequestBody](ctx, RequestBodiesLabel, root, idx)
 		captureError(err)
 		co.RequestBodies = requestBodies
 		wg.Done()
 	}()
 	go func() {
-		headers, err := extractComponentValues[*Header](HeadersLabel, root, idx)
+		headers, err := extractComponentValues[*Header](ctx, HeadersLabel, root, idx)
 		captureError(err)
 		co.Headers = headers
 		wg.Done()
 	}()
 	go func() {
-		securitySchemes, err := extractComponentValues[*SecurityScheme](SecuritySchemesLabel, root, idx)
+		securitySchemes, err := extractComponentValues[*SecurityScheme](ctx, SecuritySchemesLabel, root, idx)
 		captureError(err)
 		co.SecuritySchemes = securitySchemes
 		wg.Done()
 	}()
 	go func() {
-		links, err := extractComponentValues[*Link](LinksLabel, root, idx)
+		links, err := extractComponentValues[*Link](ctx, LinksLabel, root, idx)
 		captureError(err)
 		co.Links = links
 		wg.Done()
 	}()
 	go func() {
-		callbacks, err := extractComponentValues[*Callback](CallbacksLabel, root, idx)
+		callbacks, err := extractComponentValues[*Callback](ctx, CallbacksLabel, root, idx)
 		captureError(err)
 		co.Callbacks = callbacks
 		wg.Done()
@@ -222,13 +204,13 @@ func (co *Components) Build(root *yaml.Node, idx *index.SpecIndex) error {
 // extractComponentValues converts all the YAML nodes of a component type to
 // low level model.
 // Process each node in parallel.
-func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.Node, idx *index.SpecIndex) (low.NodeReference[map[low.KeyReference[string]]low.ValueReference[T]], error) {
-	var emptyResult low.NodeReference[map[low.KeyReference[string]]low.ValueReference[T]]
+func extractComponentValues[T low.Buildable[N], N any](ctx context.Context, label string, root *yaml.Node, idx *index.SpecIndex) (low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[T]]], error) {
+	var emptyResult low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[T]]]
 	_, nodeLabel, nodeValue := utils.FindKeyNodeFullTop(label, root.Content)
 	if nodeValue == nil {
 		return emptyResult, nil
 	}
-	componentValues := make(map[low.KeyReference[string]]low.ValueReference[T])
+	componentValues := orderedmap.New[low.KeyReference[string], low.ValueReference[T]]()
 	if utils.IsNodeArray(nodeValue) {
 		return emptyResult, fmt.Errorf("node is array, cannot be used in components: line %d, column %d", nodeValue.Line, nodeValue.Column)
 	}
@@ -271,7 +253,7 @@ func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.
 	// Collect output.
 	go func() {
 		for result := range out {
-			componentValues[result.key] = result.value
+			componentValues.Set(result.key, result.value)
 		}
 		close(done)
 		wg.Done()
@@ -287,8 +269,10 @@ func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.
 		// If you're building components as references... pls... stop, this code should not need to be here.
 		// TODO: check circular crazy on this. It may explode
 		var err error
+		nCtx := ctx
+		fIdx := idx
 		if h, _, _ := utils.IsNodeRefValue(node); h && label != SchemasLabel {
-			node, err = low.LocateRefNode(node, idx)
+			node, fIdx, err, nCtx = low.LocateRefNodeWithContext(ctx, node, idx)
 		}
 		if err != nil {
 			return componentBuildResult[T]{}, err
@@ -296,7 +280,7 @@ func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.
 
 		// build.
 		_ = low.BuildModel(node, n)
-		err = n.Build(currentLabel, node, idx)
+		err = n.Build(nCtx, currentLabel, node, fIdx)
 		if err != nil {
 			return componentBuildResult[T]{}, err
 		}
@@ -317,7 +301,7 @@ func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.
 		return emptyResult, err
 	}
 
-	results := low.NodeReference[map[low.KeyReference[string]]low.ValueReference[T]]{
+	results := low.NodeReference[*orderedmap.Map[low.KeyReference[string], low.ValueReference[T]]]{
 		KeyNode:   nodeLabel,
 		ValueNode: nodeValue,
 		Value:     componentValues,

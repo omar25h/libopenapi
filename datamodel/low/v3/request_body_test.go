@@ -4,15 +4,17 @@
 package v3
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestRequestBody_Build(t *testing.T) {
-
 	yml := `description: a nice request
 required: true
 content:
@@ -28,18 +30,22 @@ x-requesto: presto`
 	err := low.BuildModel(idxNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.NoError(t, err)
 	assert.Equal(t, "a nice request", n.Description.Value)
 	assert.True(t, n.Required.Value)
-	assert.Equal(t, "nice.", n.FindContent("fresh/fish").Value.Example.Value)
-	assert.Equal(t, "presto", n.FindExtension("x-requesto").Value)
-	assert.Len(t, n.GetExtensions(), 1)
 
+	var example string
+	_ = n.FindContent("fresh/fish").Value.Example.Value.Decode(&example)
+	assert.Equal(t, "nice.", example)
+
+	var xRequesto string
+	_ = n.FindExtension("x-requesto").Value.Decode(&xRequesto)
+	assert.Equal(t, "presto", xRequesto)
+	assert.Equal(t, 1, orderedmap.Len(n.GetExtensions()))
 }
 
 func TestRequestBody_Fail(t *testing.T) {
-
 	yml := `content:
   $ref: #illegal`
 
@@ -51,12 +57,11 @@ func TestRequestBody_Fail(t *testing.T) {
 	err := low.BuildModel(idxNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
 }
 
 func TestRequestBody_Hash(t *testing.T) {
-
 	yml := `description: nice toast
 content:
   jammy/toast:
@@ -75,7 +80,7 @@ x-toast: nice
 
 	var n RequestBody
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	yml2 := `description: nice toast
 content:
@@ -94,9 +99,53 @@ x-toast: nice`
 
 	var n2 RequestBody
 	_ = low.BuildModel(idxNode2.Content[0], &n2)
-	_ = n2.Build(nil, idxNode2.Content[0], idx2)
+	_ = n2.Build(context.Background(), nil, idxNode2.Content[0], idx2)
 
 	// hash
 	assert.Equal(t, n.Hash(), n2.Hash())
+}
 
+func TestRequestBody_TopLevelExampleExtraction(t *testing.T) {
+	getExample := func(yml string) string {
+		var idxNode yaml.Node
+		_ = yaml.Unmarshal([]byte(yml), &idxNode)
+		idx := index.NewSpecIndex(&idxNode)
+
+		var n RequestBody
+		err := low.BuildModel(idxNode.Content[0], &n)
+		assert.NoError(t, err)
+
+		err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
+		assert.NoError(t, err)
+
+		var example string
+
+		content := n.FindContent("fresh/fish")
+		if content == nil || content.Value == nil {
+			return ""
+		}
+
+		if content.Value.Example.Value == nil {
+			return ""
+		}
+
+		err = content.Value.Example.Value.Decode(&example)
+		assert.NoError(t, err)
+
+		return example
+	}
+
+	topLevelYml := `content:
+  fresh/fish:
+    example: nice.`
+	topLevelExample := getExample(topLevelYml)
+	assert.Equal(t, "nice.", topLevelExample)
+
+	schemaLevelYml := `content:
+  fresh/fish:
+    schema:
+      type: string
+      example: nice.`
+	schemaLevelExample := getExample(schemaLevelYml)
+	assert.Equal(t, "", schemaLevelExample)
 }

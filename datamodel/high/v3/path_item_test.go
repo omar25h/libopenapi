@@ -4,12 +4,14 @@
 package v3
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/pb33f/libopenapi/datamodel/low"
-	v3 "github.com/pb33f/libopenapi/datamodel/low/v3"
+	lowV3 "github.com/pb33f/libopenapi/datamodel/low/v3"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -26,9 +28,9 @@ func TestPathItem(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(yml), &idxNode)
 	idx := index.NewSpecIndex(&idxNode)
 
-	var n v3.PathItem
+	var n lowV3.PathItem
 	_ = low.BuildModel(&idxNode, &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	r := NewPathItem(&n)
 
@@ -60,17 +62,25 @@ trace:
 	_ = yaml.Unmarshal([]byte(yml), &idxNode)
 	idx := index.NewSpecIndex(&idxNode)
 
-	var n v3.PathItem
+	var n lowV3.PathItem
 	_ = low.BuildModel(&idxNode, &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	r := NewPathItem(&n)
 
-	assert.Len(t, r.GetOperations(), 8)
+	assert.Equal(t, 8, r.GetOperations().Len())
+
+	// test that the operations are in the correct order
+	expectedOrder := []string{"get", "put", "post", "patch", "delete", "head", "options", "trace"}
+
+	i := 0
+	for pair := orderedmap.First(r.GetOperations()); pair != nil; pair = pair.Next() {
+		assert.Equal(t, expectedOrder[i], pair.Value().Description)
+		i++
+	}
 }
 
 func TestPathItem_MarshalYAML(t *testing.T) {
-
 	pi := &PathItem{
 		Description: "a path item",
 		Summary:     "It's a test, don't worry about it, Jim",
@@ -111,7 +121,6 @@ parameters:
 }
 
 func TestPathItem_MarshalYAMLInline(t *testing.T) {
-
 	pi := &PathItem{
 		Description: "a path item",
 		Summary:     "It's a test, don't worry about it, Jim",
@@ -149,4 +158,41 @@ parameters:
       in: query`
 
 	assert.Equal(t, desired, strings.TrimSpace(string(rend)))
+}
+
+func TestPathItem_GetOperations_NoLow(t *testing.T) {
+	pi := &PathItem{
+		Delete: &Operation{},
+		Post:   &Operation{},
+		Get:    &Operation{},
+	}
+	ops := pi.GetOperations()
+
+	expectedOrderOfOps := []string{"get", "post", "delete"}
+	actualOrder := []string{}
+
+	for pair := orderedmap.First(ops); pair != nil; pair = pair.Next() {
+		actualOrder = append(actualOrder, pair.Key())
+	}
+
+	assert.Equal(t, expectedOrderOfOps, actualOrder)
+}
+
+func TestPathItem_GetOperations_LowWithUnsetOperations(t *testing.T) {
+	pi := &PathItem{
+		Delete: &Operation{},
+		Post:   &Operation{},
+		Get:    &Operation{},
+		low:    &lowV3.PathItem{},
+	}
+	ops := pi.GetOperations()
+
+	expectedOrderOfOps := []string{"get", "post", "delete"}
+	actualOrder := []string{}
+
+	for pair := orderedmap.First(ops); pair != nil; pair = pair.Next() {
+		actualOrder = append(actualOrder, pair.Key())
+	}
+
+	assert.Equal(t, expectedOrderOfOps, actualOrder)
 }

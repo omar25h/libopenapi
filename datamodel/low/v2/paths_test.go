@@ -4,17 +4,18 @@
 package v2
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
 
 func TestPaths_Build(t *testing.T) {
-
 	yml := `"/fresh/code":
   $ref: break`
 
@@ -27,13 +28,11 @@ func TestPaths_Build(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestPaths_FindPathAndKey(t *testing.T) {
-
 	yml := `/no/sleep:
   get:
     description: til brooklyn
@@ -47,7 +46,7 @@ func TestPaths_FindPathAndKey(t *testing.T) {
 
 	var n Paths
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	_, k := n.FindPathAndKey("/no/pizza")
 	assert.Equal(t, "because i'm fat", k.Value.Post.Value.Description.Value)
 
@@ -56,7 +55,6 @@ func TestPaths_FindPathAndKey(t *testing.T) {
 }
 
 func TestPaths_Hash(t *testing.T) {
-
 	yml := `/data/dog:
   get:
     description: does data kinda, ish.
@@ -74,7 +72,7 @@ x-milk: creamy`
 
 	var n Paths
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	yml2 := `x-milk: creamy
 /spl/unk:
@@ -94,12 +92,11 @@ x-milk: creamy`
 
 	var n2 Paths
 	_ = low.BuildModel(idxNode2.Content[0], &n2)
-	_ = n2.Build(nil, idxNode2.Content[0], idx2)
+	_ = n2.Build(context.Background(), nil, idxNode2.Content[0], idx2)
 
 	// hash
 	assert.Equal(t, n.Hash(), n2.Hash())
-	assert.Len(t, n.GetExtensions(), 1)
-
+	assert.Equal(t, 1, orderedmap.Len(n.GetExtensions()))
 }
 
 // Test parse failure among many paths.
@@ -123,6 +120,6 @@ func TestPaths_Build_Fail_Many(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
 }

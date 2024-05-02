@@ -5,10 +5,12 @@ package v3
 
 import (
 	"fmt"
+	"github.com/pb33f/libopenapi/utils"
 	"os"
 
 	"github.com/pb33f/libopenapi/datamodel"
 	lowv3 "github.com/pb33f/libopenapi/datamodel/low/v3"
+	"github.com/pb33f/libopenapi/orderedmap"
 )
 
 // An example of how to create a new high-level OpenAPI 3+ document from an OpenAPI specification.
@@ -19,17 +21,14 @@ func Example_createHighLevelOpenAPIDocument() {
 	// Create a new *datamodel.SpecInfo from bytes.
 	info, _ := datamodel.ExtractSpecInfo(data)
 
-	var err []error
+	var err error
 
 	// Create a new low-level Document, capture any errors thrown during creation.
-	lowDoc, err = lowv3.CreateDocument(info)
+	lowDoc, err = lowv3.CreateDocumentFromConfig(info, datamodel.NewDocumentConfiguration())
 
 	// Get upset if any errors were thrown.
-	if len(err) > 0 {
-		for i := range err {
-			fmt.Printf("error: %e", err[i])
-		}
-		panic("something went wrong")
+	for i := range utils.UnwrapErrors(err) {
+		fmt.Printf("error: %v", i)
 	}
 
 	// Create a high-level Document from the low-level one.
@@ -37,6 +36,6 @@ func Example_createHighLevelOpenAPIDocument() {
 
 	// Print out some details
 	fmt.Printf("Petstore contains %d paths and %d component schemas",
-		len(doc.Paths.PathItems), len(doc.Components.Schemas))
+		orderedmap.Len(doc.Paths.PathItems), orderedmap.Len(doc.Components.Schemas))
 	// Output: Petstore contains 13 paths and 8 component schemas
 }

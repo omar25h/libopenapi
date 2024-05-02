@@ -4,6 +4,7 @@
 package model
 
 import (
+	"context"
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,8 @@ func TestCompareSecurityRequirement_V2(t *testing.T) {
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -63,8 +64,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -96,14 +97,46 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&rDoc, &lDoc)
 	assert.Equal(t, 1, extChanges.TotalChanges())
 	assert.Len(t, extChanges.GetAllChanges(), 1)
 	assert.Equal(t, 1, extChanges.TotalBreakingChanges())
+}
+
+// codecov seems to get upset with this not being covered.
+// so lets run the damn thing a few hundred thousand times.
+func BenchmarkCompareSecurityRequirement_Remove(b *testing.B) {
+
+	left := `auth:
+  - pizza
+  - pie`
+
+	right := `auth:
+  - pie
+  - pizza
+biscuit:
+  - digestive`
+
+	var lNode, rNode yaml.Node
+	_ = yaml.Unmarshal([]byte(left), &lNode)
+	_ = yaml.Unmarshal([]byte(right), &rNode)
+
+	for i := 0; i < b.N; i++ {
+		var lDoc base.SecurityRequirement
+		var rDoc base.SecurityRequirement
+		_ = low.BuildModel(lNode.Content[0], &lDoc)
+		_ = low.BuildModel(rNode.Content[0], &rDoc)
+		_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+		_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
+		extChanges := CompareSecurityRequirement(&rDoc, &lDoc)
+		assert.Equal(b, 1, extChanges.TotalChanges())
+		assert.Len(b, extChanges.GetAllChanges(), 1)
+		assert.Equal(b, 1, extChanges.TotalBreakingChanges())
+	}
 }
 
 func TestCompareSecurityRequirement_SwapOut_V2(t *testing.T) {
@@ -129,8 +162,8 @@ milk:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -166,8 +199,8 @@ milk:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -201,8 +234,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -239,8 +272,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -273,8 +306,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -307,8 +340,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)
@@ -339,8 +372,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&rDoc, &lDoc)
@@ -375,8 +408,8 @@ biscuit:
 	var rDoc base.SecurityRequirement
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	// compare
 	extChanges := CompareSecurityRequirement(&lDoc, &rDoc)

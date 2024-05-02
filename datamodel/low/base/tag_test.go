@@ -4,15 +4,17 @@
 package base
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestTag_Build(t *testing.T) {
-
 	yml := `name: a tag
 description: a description
 externalDocs: 
@@ -27,18 +29,20 @@ x-coffee: tasty`
 	err := low.BuildModel(idxNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.NoError(t, err)
 	assert.Equal(t, "a tag", n.Name.Value)
 	assert.Equal(t, "a description", n.Description.Value)
 	assert.Equal(t, "https://pb33f.io", n.ExternalDocs.Value.URL.Value)
-	assert.Equal(t, "tasty", n.FindExtension("x-coffee").Value)
-	assert.Len(t, n.GetExtensions(), 1)
 
+	var xCoffee string
+	_ = n.FindExtension("x-coffee").GetValue().Decode(&xCoffee)
+
+	assert.Equal(t, "tasty", xCoffee)
+	assert.Equal(t, 1, orderedmap.Len(n.GetExtensions()))
 }
 
 func TestTag_Build_Error(t *testing.T) {
-
 	yml := `name: a tag
 description: a description
 externalDocs: 
@@ -52,12 +56,11 @@ externalDocs:
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
 }
 
 func TestTag_Hash(t *testing.T) {
-
 	left := `name: melody
 description: my princess
 externalDocs:
@@ -79,9 +82,8 @@ x-b33f: princess`
 	var rDoc Tag
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	assert.Equal(t, lDoc.Hash(), rDoc.Hash())
-
 }

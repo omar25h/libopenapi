@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/pb33f/libopenapi/utils"
+
 	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
@@ -162,8 +164,8 @@ func test_BuildDoc(l, r string) (*v3.Document, *v3.Document) {
 	leftInfo, _ := datamodel.ExtractSpecInfo([]byte(l))
 	rightInfo, _ := datamodel.ExtractSpecInfo([]byte(r))
 
-	leftDoc, _ := v3.CreateDocumentFromConfig(leftInfo, datamodel.NewOpenDocumentConfiguration())
-	rightDoc, _ := v3.CreateDocumentFromConfig(rightInfo, datamodel.NewOpenDocumentConfiguration())
+	leftDoc, _ := v3.CreateDocumentFromConfig(leftInfo, datamodel.NewDocumentConfiguration())
+	rightDoc, _ := v3.CreateDocumentFromConfig(rightInfo, datamodel.NewDocumentConfiguration())
 	return leftDoc, rightDoc
 }
 
@@ -171,14 +173,15 @@ func test_BuildDocv2(l, r string) (*v2.Swagger, *v2.Swagger) {
 	leftInfo, _ := datamodel.ExtractSpecInfo([]byte(l))
 	rightInfo, _ := datamodel.ExtractSpecInfo([]byte(r))
 
-	var err []error
+	var err error
 	var leftDoc, rightDoc *v2.Swagger
-	leftDoc, err = v2.CreateDocumentFromConfig(leftInfo, datamodel.NewOpenDocumentConfiguration())
-	rightDoc, err = v2.CreateDocumentFromConfig(rightInfo, datamodel.NewOpenDocumentConfiguration())
+	leftDoc, _ = v2.CreateDocumentFromConfig(leftInfo, datamodel.NewDocumentConfiguration())
+	rightDoc, err = v2.CreateDocumentFromConfig(rightInfo, datamodel.NewDocumentConfiguration())
 
-	if len(err) > 0 {
-		for i := range err {
-			fmt.Printf("error: %v\n", err[i])
+	uErr := utils.UnwrapErrors(err)
+	if len(uErr) > 0 {
+		for i := range uErr {
+			fmt.Printf("error: %v\n", uErr[i])
 		}
 		panic("failed to create doc")
 	}
@@ -457,6 +460,8 @@ components:
 	assert.Equal(t, PropertyAdded, changes.Changes[0].ChangeType)
 	assert.Equal(t, "d", changes.Changes[0].New)
 	assert.Equal(t, v3.EnumLabel, changes.Changes[0].Property)
+	assert.Equal(t, 5, *changes.GetAllChanges()[0].Context.NewLine)
+	assert.Equal(t, 20, *changes.GetAllChanges()[0].Context.NewColumn)
 }
 
 func TestCompareSchemas_EnumRemoved(t *testing.T) {
@@ -485,6 +490,8 @@ components:
 	assert.Equal(t, PropertyRemoved, changes.Changes[0].ChangeType)
 	assert.Equal(t, "d", changes.Changes[0].Original)
 	assert.Equal(t, v3.EnumLabel, changes.Changes[0].Property)
+	assert.Equal(t, 5, *changes.GetAllChanges()[0].Context.OriginalLine)
+	assert.Equal(t, 20, *changes.GetAllChanges()[0].Context.OriginalColumn)
 }
 
 func TestCompareSchemas_PropertyAdded(t *testing.T) {
@@ -1246,6 +1253,61 @@ components:
 	assert.Len(t, changes.GetAllChanges(), 1)
 	assert.Equal(t, 1, changes.TotalBreakingChanges())
 	assert.Equal(t, 1, changes.AdditionalPropertiesChanges.PropertyChanges.TotalChanges())
+}
+
+func TestCompareSchemas_AdditionalProperties_Boolean(t *testing.T) {
+	left := `openapi: 3.1
+components:
+  schemas:
+    OK:
+      additionalProperties: true`
+
+	right := `openapi: 3.1
+components:
+  schemas:
+    OK:
+      additionalProperties: false`
+
+	leftDoc, rightDoc := test_BuildDoc(left, right)
+
+	// extract left reference schema and non reference schema.
+	lSchemaProxy := leftDoc.Components.Value.FindSchema("OK").Value
+	rSchemaProxy := rightDoc.Components.Value.FindSchema("OK").Value
+
+	changes := CompareSchemas(lSchemaProxy, rSchemaProxy)
+	assert.NotNil(t, changes)
+	assert.Equal(t, 1, changes.TotalChanges())
+	assert.Len(t, changes.GetAllChanges(), 1)
+	assert.Equal(t, 1, changes.TotalBreakingChanges())
+	assert.Equal(t, 1, changes.PropertyChanges.TotalChanges())
+}
+
+func TestCompareSchemas_AdditionalProperties_Boolean_To_Schema(t *testing.T) {
+	left := `openapi: 3.1
+components:
+  schemas:
+    OK:
+      additionalProperties: true`
+
+	right := `openapi: 3.1
+components:
+  schemas:
+    OK:
+      additionalProperties:
+        type: int`
+
+	leftDoc, rightDoc := test_BuildDoc(left, right)
+
+	// extract left reference schema and non reference schema.
+	lSchemaProxy := leftDoc.Components.Value.FindSchema("OK").Value
+	rSchemaProxy := rightDoc.Components.Value.FindSchema("OK").Value
+
+	changes := CompareSchemas(lSchemaProxy, rSchemaProxy)
+	assert.NotNil(t, changes)
+	assert.Equal(t, 1, changes.TotalChanges())
+	assert.Len(t, changes.GetAllChanges(), 1)
+	assert.Equal(t, 1, changes.TotalBreakingChanges())
+	assert.Equal(t, 1, changes.PropertyChanges.TotalChanges())
 }
 
 func TestCompareSchemas_AdditionalProperties_Added(t *testing.T) {
@@ -2653,7 +2715,7 @@ components:
         - type: array
           items:
             type: string
-          example: 
+          example:
             oh: my`
 	right := `openapi: 3.0
 components:
@@ -2779,4 +2841,104 @@ components:
 	assert.Equal(t, 3, changes.TotalBreakingChanges())
 	assert.Len(t, changes.SchemaPropertyChanges["name"].PropertyChanges.Changes, 2)
 	assert.Len(t, changes.PropertyChanges.Changes, 2)
+}
+
+func TestSchemaChanges_TotalChanges_NoNilPanic(t *testing.T) {
+	var changes *SchemaChanges
+	assert.Equal(t, 0, changes.TotalChanges())
+}
+
+func TestSchemaChanges_TotalBreakingChanges_NoNilPanic(t *testing.T) {
+	var changes *SchemaChanges
+	assert.Equal(t, 0, changes.TotalBreakingChanges())
+}
+
+func TestCompareSchemas_Nil(t *testing.T) {
+	assert.Nil(t, CompareSchemas(nil, nil))
+}
+
+// Test for issue https://github.com/pb33f/libopenapi/issues/218
+func TestCompareSchemas_PropertyRefChange_Identical(t *testing.T) {
+	left := `openapi: 3.0
+components:
+  schemas:
+    Yo:
+      type: int 
+    OK:
+      $ref: '#/components/schemas/Yo'`
+
+	right := `openapi: 3.0
+components:
+  schemas:
+    Yo:
+      type: int 
+    OK:
+      type: int`
+
+	leftDoc, rightDoc := test_BuildDoc(left, right)
+
+	// extract left reference schema and non reference schema.
+	lSchemaProxy := leftDoc.Components.Value.FindSchema("OK").Value
+	rSchemaProxy := rightDoc.Components.Value.FindSchema("OK").Value
+
+	changes := CompareSchemas(lSchemaProxy, rSchemaProxy)
+	assert.Nil(t, changes)
+
+}
+
+func TestCompareSchemas_PropertyRefChange_IdenticalReverse(t *testing.T) {
+	left := `openapi: 3.0
+components:
+  schemas:
+    Yo:
+      type: int 
+    OK:
+      $ref: '#/components/schemas/Yo'`
+
+	right := `openapi: 3.0
+components:
+  schemas:
+    Yo:
+      type: int 
+    OK:
+      type: int`
+
+	leftDoc, rightDoc := test_BuildDoc(right, left)
+
+	// extract left reference schema and non reference schema.
+	lSchemaProxy := leftDoc.Components.Value.FindSchema("OK").Value
+	rSchemaProxy := rightDoc.Components.Value.FindSchema("OK").Value
+
+	changes := CompareSchemas(lSchemaProxy, rSchemaProxy)
+	assert.Nil(t, changes)
+
+}
+
+func TestCompareSchemas_PropertyRefChange_Fail(t *testing.T) {
+	left := `openapi: 3.0
+components:
+  schemas:
+    Yo:
+      type: int 
+    OK:
+      $ref: '#/components/schemas/Yo'`
+
+	right := `openapi: 3.0
+components:
+  schemas:
+    Yo:
+      type: int 
+    OK:
+      type: string`
+
+	leftDoc, rightDoc := test_BuildDoc(left, right)
+
+	// extract left reference schema and non reference schema.
+	lSchemaProxy := leftDoc.Components.Value.FindSchema("OK").Value
+	rSchemaProxy := rightDoc.Components.Value.FindSchema("OK").Value
+
+	changes := CompareSchemas(lSchemaProxy, rSchemaProxy)
+	assert.NotNil(t, changes)
+	assert.Equal(t, 1, changes.TotalChanges())
+
 }

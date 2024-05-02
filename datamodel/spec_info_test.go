@@ -23,23 +23,16 @@ const (
 	AsyncApi = "asyncapi"
 )
 
-func TestSpecInfo_GetJSONParsingChannel(t *testing.T) {
-
-	// dumb, but we need to ensure coverage is as high as we can make it.
-	bchan := make(chan bool)
-	si := &SpecInfo{JsonParsingChannel: bchan}
-	assert.Equal(t, si.GetJSONParsingChannel(), bchan)
-
-}
-
-var goodJSON = `{"name":"kitty", "noises":["meow","purrrr","gggrrraaaaaooooww"]}`
-var badJSON = `{"name":"kitty, "noises":[{"meow","purrrr","gggrrraaaaaooooww"]}}`
-var goodYAML = `name: kitty
+var (
+	goodJSON = `{"name":"kitty", "noises":["meow","purrrr","gggrrraaaaaooooww"]}`
+	badJSON  = `{"name":"kitty, "noises":[{"meow","purrrr","gggrrraaaaaooooww"]}}`
+	goodYAML = `name: kitty
 noises:
 - meow
 - purrr
 - gggggrrraaaaaaaaaooooooowwwwwww
 `
+)
 
 var badYAML = `name: kitty
   noises:
@@ -147,7 +140,6 @@ func TestExtractSpecInfo_InvalidOpenAPIVersion(t *testing.T) {
 }
 
 func TestExtractSpecInfo_OpenAPI3(t *testing.T) {
-
 	r, e := ExtractSpecInfo([]byte(OpenApi3Spec))
 	assert.Nil(t, e)
 	assert.Equal(t, utils.OpenApi3, r.SpecType)
@@ -157,7 +149,6 @@ func TestExtractSpecInfo_OpenAPI3(t *testing.T) {
 }
 
 func TestExtractSpecInfo_OpenAPIWat(t *testing.T) {
-
 	r, e := ExtractSpecInfo([]byte(OpenApiWat))
 	assert.Nil(t, e)
 	assert.Equal(t, OpenApi3, r.SpecType)
@@ -165,7 +156,6 @@ func TestExtractSpecInfo_OpenAPIWat(t *testing.T) {
 }
 
 func TestExtractSpecInfo_OpenAPI31(t *testing.T) {
-
 	r, e := ExtractSpecInfo([]byte(OpenApi31))
 	assert.Nil(t, e)
 	assert.Equal(t, OpenApi3, r.SpecType)
@@ -174,7 +164,6 @@ func TestExtractSpecInfo_OpenAPI31(t *testing.T) {
 }
 
 func TestExtractSpecInfo_AnyDocument(t *testing.T) {
-
 	random := `something: yeah
 nothing:
   - one
@@ -189,8 +178,22 @@ why:
 	assert.Len(t, *r.SpecBytes, 55)
 }
 
-func TestExtractSpecInfo_AnyDocument_JSON(t *testing.T) {
+func TestExtractSpecInfo_AnyDocument_Sync(t *testing.T) {
+	random := `something: yeah
+nothing:
+  - one
+  - two
+why:
+  yes: no`
 
+	r, e := ExtractSpecInfoWithDocumentCheckSync([]byte(random), true)
+	assert.Nil(t, e)
+	assert.NotNil(t, r.RootNode)
+	assert.Equal(t, "something", r.RootNode.Content[0].Content[0].Value)
+	assert.Len(t, *r.SpecBytes, 55)
+}
+
+func TestExtractSpecInfo_AnyDocument_JSON(t *testing.T) {
 	random := `{ "something" : "yeah"}`
 
 	r, e := ExtractSpecInfoWithDocumentCheck([]byte(random), true)
@@ -201,7 +204,6 @@ func TestExtractSpecInfo_AnyDocument_JSON(t *testing.T) {
 }
 
 func TestExtractSpecInfo_AnyDocumentFromConfig(t *testing.T) {
-
 	random := `something: yeah
 nothing:
   - one
@@ -219,14 +221,12 @@ why:
 }
 
 func TestExtractSpecInfo_OpenAPIFalse(t *testing.T) {
-
 	spec, e := ExtractSpecInfo([]byte(OpenApiFalse))
 	assert.NoError(t, e)
 	assert.Equal(t, "false", spec.Version)
 }
 
 func TestExtractSpecInfo_OpenAPI2(t *testing.T) {
-
 	r, e := ExtractSpecInfo([]byte(OpenApi2Spec))
 	assert.Nil(t, e)
 	assert.Equal(t, OpenApi2, r.SpecType)
@@ -236,7 +236,6 @@ func TestExtractSpecInfo_OpenAPI2(t *testing.T) {
 }
 
 func TestExtractSpecInfo_OpenAPI2_OddVersion(t *testing.T) {
-
 	_, e := ExtractSpecInfo([]byte(OpenApi2SpecOdd))
 	assert.NotNil(t, e)
 	assert.Equal(t,
@@ -244,7 +243,6 @@ func TestExtractSpecInfo_OpenAPI2_OddVersion(t *testing.T) {
 }
 
 func TestExtractSpecInfo_AsyncAPI(t *testing.T) {
-
 	r, e := ExtractSpecInfo([]byte(AsyncAPISpec))
 	assert.Nil(t, e)
 	assert.Equal(t, AsyncApi, r.SpecType)
@@ -253,7 +251,6 @@ func TestExtractSpecInfo_AsyncAPI(t *testing.T) {
 }
 
 func TestExtractSpecInfo_AsyncAPI_OddVersion(t *testing.T) {
-
 	_, e := ExtractSpecInfo([]byte(AsyncAPISpecOdd))
 	assert.NotNil(t, e)
 	assert.Equal(t,
@@ -261,7 +258,6 @@ func TestExtractSpecInfo_AsyncAPI_OddVersion(t *testing.T) {
 }
 
 func TestExtractSpecInfo_BadVersion_OpenAPI3(t *testing.T) {
-
 	yml := `openapi:
  should: fail`
 
@@ -270,7 +266,6 @@ func TestExtractSpecInfo_BadVersion_OpenAPI3(t *testing.T) {
 }
 
 func TestExtractSpecInfo_BadVersion_Swagger(t *testing.T) {
-
 	yml := `swagger:
  should: fail`
 
@@ -279,7 +274,6 @@ func TestExtractSpecInfo_BadVersion_Swagger(t *testing.T) {
 }
 
 func TestExtractSpecInfo_BadVersion_AsyncAPI(t *testing.T) {
-
 	yml := `asyncapi:
  should: fail`
 
@@ -288,7 +282,6 @@ func TestExtractSpecInfo_BadVersion_AsyncAPI(t *testing.T) {
 }
 
 func ExampleExtractSpecInfo() {
-
 	// load bytes from openapi spec file.
 	bytes, _ := os.ReadFile("../test_specs/petstorev3.json")
 
@@ -303,4 +296,11 @@ func ExampleExtractSpecInfo() {
 		specInfo.Version, specInfo.SpecFormat, specInfo.SpecFileType)
 
 	// Output: the version of the spec is 3.0.2, the format is oas3 and the file type is json
+}
+
+func TestExtractSpecInfoSync_Error(t *testing.T) {
+	random := ``
+
+	_, e := ExtractSpecInfoWithDocumentCheckSync([]byte(random), true)
+	assert.Error(t, e)
 }

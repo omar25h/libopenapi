@@ -4,15 +4,17 @@
 package base
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestExternalDoc_FindExtension(t *testing.T) {
-
 	yml := `x-fish: cake`
 
 	var idxNode yaml.Node
@@ -23,14 +25,16 @@ func TestExternalDoc_FindExtension(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.NoError(t, err)
-	assert.Equal(t, "cake", n.FindExtension("x-fish").Value)
 
+	var xFish string
+	_ = n.FindExtension("x-fish").Value.Decode(&xFish)
+
+	assert.Equal(t, "cake", xFish)
 }
 
 func TestExternalDoc_Build(t *testing.T) {
-
 	yml := `url: https://pb33f.io
 description: the ranch
 x-b33f: princess`
@@ -44,18 +48,17 @@ x-b33f: princess`
 	err := low.BuildModel(idxNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.NoError(t, err)
 	assert.Equal(t, "https://pb33f.io", n.URL.Value)
 	assert.Equal(t, "the ranch", n.Description.Value)
-	ext := n.FindExtension("x-b33f")
-	assert.NotNil(t, ext)
-	assert.Equal(t, "princess", ext.Value)
 
+	var xB33f string
+	_ = n.FindExtension("x-b33f").Value.Decode(&xB33f)
+	assert.Equal(t, "princess", xB33f)
 }
 
 func TestExternalDoc_Hash(t *testing.T) {
-
 	left := `url: https://pb33f.io
 description: the ranch
 x-b33f: princess`
@@ -73,9 +76,9 @@ description: the ranch`
 	var rDoc ExternalDoc
 	_ = low.BuildModel(lNode.Content[0], &lDoc)
 	_ = low.BuildModel(rNode.Content[0], &rDoc)
-	_ = lDoc.Build(nil, lNode.Content[0], nil)
-	_ = rDoc.Build(nil, rNode.Content[0], nil)
+	_ = lDoc.Build(context.Background(), nil, lNode.Content[0], nil)
+	_ = rDoc.Build(context.Background(), nil, rNode.Content[0], nil)
 
 	assert.Equal(t, lDoc.Hash(), rDoc.Hash())
-	assert.Len(t, lDoc.GetExtensions(), 1)
+	assert.Equal(t, 1, orderedmap.Len(lDoc.GetExtensions()))
 }

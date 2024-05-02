@@ -4,21 +4,23 @@
 package renderer
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	highbase "github.com/pb33f/libopenapi/datamodel/high/base"
-	"github.com/pb33f/libopenapi/datamodel/low"
-	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 	"net/url"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	highbase "github.com/pb33f/libopenapi/datamodel/high/base"
+	"github.com/pb33f/libopenapi/datamodel/low"
+	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestRenderSchema(t *testing.T) {
@@ -36,7 +38,6 @@ properties:
 }
 
 func createSchemaRenderer() *SchemaRenderer {
-
 	osDict := "/usr/share/dict/words"
 	if _, err := os.Stat(osDict); err != nil {
 		osDict = ""
@@ -56,7 +57,7 @@ func getSchema(schema []byte) *highbase.Schema {
 		panic(e)
 	}
 	sp := new(lowbase.SchemaProxy)
-	_ = sp.Build(nil, compNode.Content[0], nil)
+	_ = sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	lp := low.NodeReference[*lowbase.SchemaProxy]{
 		Value:     sp,
 		ValueNode: compNode.Content[0],
@@ -66,7 +67,6 @@ func getSchema(schema []byte) *highbase.Schema {
 }
 
 func TestRenderExample_StringWithExample(t *testing.T) {
-
 	testObject := `type: string
 example: dog`
 
@@ -77,11 +77,9 @@ example: dog`
 	wr.DiveIntoSchema(compiled, "pb33f", journeyMap, 0)
 
 	assert.Equal(t, journeyMap["pb33f"], "dog")
-
 }
 
 func TestRenderExample_StringWithNoExample(t *testing.T) {
-
 	testObject := `type: string`
 
 	compiled := getSchema([]byte(testObject))
@@ -93,11 +91,9 @@ func TestRenderExample_StringWithNoExample(t *testing.T) {
 	assert.NotNil(t, journeyMap["pb33f"])
 	assert.GreaterOrEqual(t, len(journeyMap["pb33f"].(string)), 3)
 	assert.LessOrEqual(t, len(journeyMap["pb33f"].(string)), 10)
-
 }
 
 func TestRenderExample_StringWithNoExample_Format_Datetime(t *testing.T) {
-
 	testObject := `type: string
 format: date-time`
 
@@ -113,7 +109,6 @@ format: date-time`
 }
 
 func TestRenderExample_StringWithNoExample_Pattern_Email(t *testing.T) {
-
 	testObject := `type: string
 pattern: "^[a-z]{5,10}@[a-z]{5,10}\\.(com|net|org)$"` // an email address
 
@@ -132,7 +127,6 @@ pattern: "^[a-z]{5,10}@[a-z]{5,10}\\.(com|net|org)$"` // an email address
 }
 
 func TestRenderExample_StringWithNoExample_Pattern_PhoneNumber(t *testing.T) {
-
 	testObject := `type: string
 pattern: "^\\([0-9]{3}\\)-[0-9]{3}-[0-9]{4}$"` // a phone number
 
@@ -150,7 +144,6 @@ pattern: "^\\([0-9]{3}\\)-[0-9]{3}-[0-9]{4}$"` // a phone number
 }
 
 func TestRenderExample_StringWithNoExample_Format_Date(t *testing.T) {
-
 	testObject := `type: string
 format: date`
 
@@ -388,7 +381,6 @@ minLength: 3`
 	assert.NotNil(t, journeyMap["pb33f"])
 	assert.LessOrEqual(t, len(journeyMap["pb33f"].(string)), 8)
 	assert.GreaterOrEqual(t, len(journeyMap["pb33f"].(string)), 3)
-
 }
 
 func TestRenderExample_NumberNoExample_Default(t *testing.T) {
@@ -769,7 +761,6 @@ properties:
 	assert.Equal(t, journeyMap["pb33f"].(map[string]interface{})["price"].(float64), 19.99)
 	assert.Equal(t, journeyMap["pb33f"].(map[string]interface{})["category"].(string), "shirts")
 	assert.Equal(t, journeyMap["pb33f"].(map[string]interface{})["image"].(string), "https://pb33f.io/images/t-shirt.png")
-
 }
 
 func TestRenderExample_TestGiftshopProduct_UsingTopLevelExample(t *testing.T) {
@@ -837,7 +828,6 @@ example:
 
 	assert.Equal(t, journeyMap["pb33f"].(map[string]interface{})["category"].(string), "not-a-category")
 	assert.Equal(t, journeyMap["pb33f"].(map[string]interface{})["image"].(string), "not-an-image")
-
 }
 
 func TestRenderExample_TestGiftshopProduct_UsingNoExamples(t *testing.T) {
@@ -887,7 +877,6 @@ properties:
 	assert.NotEmpty(t, journeyMap["pb33f"].(map[string]interface{})["price"].(float32))
 	assert.NotEmpty(t, journeyMap["pb33f"].(map[string]interface{})["category"].(string))
 	assert.NotEmpty(t, journeyMap["pb33f"].(map[string]interface{})["image"].(string))
-
 }
 
 func TestRenderExample_Test_MultiPolymorphic(t *testing.T) {
@@ -929,7 +918,7 @@ properties:
 	burger := journeyMap["pb33f"].(map[string]interface{})["burger"].(map[string]interface{})
 	assert.NotNil(t, burger)
 	assert.NotEmpty(t, burger["name"].(string))
-	assert.NotZero(t, burger["weight"].(int64))
+	assert.NotZero(t, burger["weight"].(int))
 	assert.NotEmpty(t, burger["patty"].(string))
 	assert.True(t, burger["frozen"].(bool))
 }
@@ -957,6 +946,32 @@ properties:
 	assert.NotNil(t, drink)
 	assert.Nil(t, journeyMap["pb33f"].(map[string]interface{})["burger"])
 	assert.Nil(t, journeyMap["pb33f"].(map[string]interface{})["fries"])
+}
+
+func TestRenderExample_Test_RequiredCheckDisabled(t *testing.T) {
+	testObject := `type: [object]
+required:
+  - drink
+properties:
+  burger:
+    type: string
+  fries:
+    type: string
+  drink:
+    type: string`
+
+	compiled := getSchema([]byte(testObject))
+
+	journeyMap := make(map[string]any)
+	wr := createSchemaRenderer()
+	wr.DisableRequiredCheck()
+	wr.DiveIntoSchema(compiled, "pb33f", journeyMap, 0)
+
+	assert.NotNil(t, journeyMap["pb33f"])
+	drink := journeyMap["pb33f"].(map[string]interface{})["drink"].(string)
+	assert.NotNil(t, drink)
+	assert.NotNil(t, journeyMap["pb33f"].(map[string]interface{})["burger"])
+	assert.NotNil(t, journeyMap["pb33f"].(map[string]interface{})["fries"])
 }
 
 func TestRenderSchema_WithExample(t *testing.T) {
@@ -1019,6 +1034,142 @@ properties:
 	assert.Equal(t, `{"count":9934}`, string(rendered))
 }
 
+func TestRenderSchema_Items_WithExample(t *testing.T) {
+	testObject := `type: object
+properties:
+  args:
+    type: object
+    properties:
+      arrParam:
+        type: string
+        example: test,test2
+      arrParamExploded:
+        type: array
+        items:
+          type: string
+          example: "1"`
+
+	compiled := getSchema([]byte(testObject))
+	schema := make(map[string]any)
+	wr := createSchemaRenderer()
+	wr.DiveIntoSchema(compiled, "pb33f", schema, 0)
+	rendered, _ := json.Marshal(schema["pb33f"])
+	assert.Equal(t, `{"args":{"arrParam":"test,test2","arrParamExploded":["1"]}}`, string(rendered))
+}
+
+func TestRenderSchema_Items_WithExamples(t *testing.T) {
+	testObject := `type: object
+properties:
+  args:
+    type: object
+    properties:
+      arrParam:
+        type: string
+        example: test,test2
+      arrParamExploded:
+        type: array
+        items:
+          type: string
+          examples:
+            - 1
+            - 2`
+
+	compiled := getSchema([]byte(testObject))
+	schema := make(map[string]any)
+	wr := createSchemaRenderer()
+	wr.DiveIntoSchema(compiled, "pb33f", schema, 0)
+	rendered, _ := json.Marshal(schema["pb33f"])
+	assert.Equal(t, `{"args":{"arrParam":"test,test2","arrParamExploded":["1","2"]}}`, string(rendered))
+}
+
+// https://github.com/pb33f/wiretap/issues/93
+func TestRenderSchema_NonStandard_Format(t *testing.T) {
+	testObject := `type: object
+properties:
+  bigint:
+    type: integer
+    format: bigint
+    example: 8821239038968084
+  bigintStr:
+    type: string
+    format: bigint
+    example: "9223372036854775808"
+  decimal:
+    type: number
+    format: decimal
+    example: 3.141592653589793
+  decimalStr:
+    type: string
+    format: decimal
+    example: "3.14159265358979344719667586"`
+
+	compiled := getSchema([]byte(testObject))
+	schema := make(map[string]any)
+	wr := createSchemaRenderer()
+	wr.DiveIntoSchema(compiled, "pb33f", schema, 0)
+	rendered, _ := json.Marshal(schema["pb33f"])
+	assert.Equal(t, `{"bigint":8821239038968084,"bigintStr":"9223372036854775808","decimal":3.141592653589793,"decimalStr":"3.14159265358979344719667586"}`, string(rendered))
+}
+
+func TestRenderSchema_NonStandard_Format_MultiExample(t *testing.T) {
+	testObject := `type: object
+properties:
+  bigint:
+    type: integer
+    format: bigint
+    examples: 
+      - 8821239038968084
+  bigintStr:
+    type: string
+    format: bigint
+    examples: 
+      - "9223372036854775808"
+  decimal:
+    type: number
+    format: decimal
+    examples: 
+      - 3.141592653589793
+  decimalStr:
+    type: string
+    format: decimal
+    examples: 
+      - "3.14159265358979344719667586"`
+
+	compiled := getSchema([]byte(testObject))
+	schema := make(map[string]any)
+	wr := createSchemaRenderer()
+	wr.DiveIntoSchema(compiled, "pb33f", schema, 0)
+	rendered, _ := json.Marshal(schema["pb33f"])
+	assert.Equal(t, `{"bigint":8821239038968084,"bigintStr":"9223372036854775808","decimal":3.141592653589793,"decimalStr":"3.14159265358979344719667586"}`, string(rendered))
+}
+
+func TestRenderSchema_NonStandard_Format_NoExamples(t *testing.T) {
+	testObject := `type: object
+properties:
+  bigint:
+    type: integer
+    format: bigint
+  bigintStr:
+    type: string
+    format: bigint
+  decimal:
+    type: number
+    format: decimal
+  decimalStr:
+    type: string
+    format: decimal
+`
+
+	compiled := getSchema([]byte(testObject))
+	schema := make(map[string]any)
+	wr := createSchemaRenderer()
+	wr.DiveIntoSchema(compiled, "pb33f", schema, 0)
+	assert.NotEmpty(t, schema["pb33f"].(map[string]interface{})["bigint"])
+	assert.NotEmpty(t, schema["pb33f"].(map[string]interface{})["bigintStr"])
+	assert.NotEmpty(t, schema["pb33f"].(map[string]interface{})["decimal"])
+	assert.NotEmpty(t, schema["pb33f"].(map[string]interface{})["decimalStr"])
+}
+
 func TestCreateRendererUsingDefaultDictionary(t *testing.T) {
 	assert.NotNil(t, CreateRendererUsingDefaultDictionary())
 }
@@ -1055,7 +1206,6 @@ func (errReader) Read(p []byte) (n int, err error) {
 }
 
 func TestReadDictionary_BadReader(t *testing.T) {
-
 	words := readFile(errReader(0))
 	assert.LessOrEqual(t, len(words), 0)
 }
@@ -1085,14 +1235,13 @@ func TestWordRenderer_RandomWordMinMaxZero(t *testing.T) {
 }
 
 func TestRenderSchema_NestedDeep(t *testing.T) {
-
 	deepNest := createNestedStructure()
 	journeyMap := make(map[string]any)
 	wr := createSchemaRenderer()
 	wr.DiveIntoSchema(deepNest.Schema(), "pb33f", journeyMap, 0)
 
 	assert.NotNil(t, journeyMap["pb33f"])
-	var journeyLevel = 0
+	journeyLevel := 0
 	var dive func(mapNode map[string]any, level int)
 	// count the levels to validate the recursion hard limit.
 	dive = func(mapNode map[string]any, level int) {
@@ -1116,7 +1265,6 @@ func TestCreateRendererUsingDictionary(t *testing.T) {
 }
 
 func createNestedStructure() *highbase.SchemaProxy {
-
 	schema := `type: [object]
 properties:
   name:
@@ -1131,7 +1279,7 @@ properties:
 
 	buildSchema := func() *highbase.SchemaProxy {
 		sp := new(lowbase.SchemaProxy)
-		_ = sp.Build(nil, compNode.Content[0], nil)
+		_ = sp.Build(context.Background(), nil, compNode.Content[0], nil)
 		lp := low.NodeReference[*lowbase.SchemaProxy]{
 			Value:     sp,
 			ValueNode: compNode.Content[0],
@@ -1144,7 +1292,7 @@ properties:
 	loopMe = func(parent *highbase.SchemaProxy, level int) {
 		schemaProxy := buildSchema()
 		if parent != nil {
-			parent.Schema().Properties["child"] = schemaProxy
+			parent.Schema().Properties.Set("child", schemaProxy)
 		}
 		if level < 110 {
 			loopMe(schemaProxy, level+1)

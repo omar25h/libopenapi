@@ -2,11 +2,19 @@ package v3
 
 import (
 	"fmt"
+	"log/slog"
+	"net/http"
+	"net/url"
 	"os"
 	"testing"
 
+	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/utils"
+
 	"github.com/pb33f/libopenapi/datamodel"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var doc *Document
@@ -17,9 +25,9 @@ func initTest() {
 	}
 	data, _ := os.ReadFile("../../../test_specs/burgershop.openapi.yaml")
 	info, _ := datamodel.ExtractSpecInfo(data)
-	var err []error
+	var err error
 	// deprecated function test.
-	doc, err = CreateDocument(info)
+	doc, err = CreateDocumentFromConfig(info, datamodel.NewDocumentConfiguration())
 	if err != nil {
 		panic("broken something")
 	}
@@ -29,10 +37,7 @@ func BenchmarkCreateDocument(b *testing.B) {
 	data, _ := os.ReadFile("../../../test_specs/burgershop.openapi.yaml")
 	info, _ := datamodel.ExtractSpecInfo(data)
 	for i := 0; i < b.N; i++ {
-		doc, _ = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-			AllowFileReferences:   false,
-			AllowRemoteReferences: false,
-		})
+		doc, _ = CreateDocumentFromConfig(info, datamodel.NewDocumentConfiguration())
 	}
 }
 
@@ -40,28 +45,9 @@ func BenchmarkCreateDocument_Circular(b *testing.B) {
 	data, _ := os.ReadFile("../../../test_specs/circular-tests.yaml")
 	info, _ := datamodel.ExtractSpecInfo(data)
 	for i := 0; i < b.N; i++ {
-		_, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-			AllowFileReferences:   false,
-			AllowRemoteReferences: false,
-		})
-		if err != nil {
-			panic("this should not error")
-		}
-	}
-}
-
-func BenchmarkCreateDocument_k8s(b *testing.B) {
-	data, _ := os.ReadFile("../../../test_specs/k8s.json")
-	info, _ := datamodel.ExtractSpecInfo(data)
-
-	for i := 0; i < b.N; i++ {
-
-		_, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-			AllowFileReferences:   false,
-			AllowRemoteReferences: false,
-		})
-		if err != nil {
-			panic("this should not error")
+		_, err := CreateDocumentFromConfig(info, datamodel.NewDocumentConfiguration())
+		if err == nil {
+			panic("this should error, it has circular references")
 		}
 	}
 }
@@ -69,12 +55,132 @@ func BenchmarkCreateDocument_k8s(b *testing.B) {
 func TestCircularReferenceError(t *testing.T) {
 	data, _ := os.ReadFile("../../../test_specs/circular-tests.yaml")
 	info, _ := datamodel.ExtractSpecInfo(data)
-	circDoc, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
+	circDoc, err := CreateDocumentFromConfig(info, datamodel.NewDocumentConfiguration())
+
 	assert.NotNil(t, circDoc)
-	assert.Len(t, err, 3)
+	assert.Error(t, err)
+
+	assert.Len(t, utils.UnwrapErrors(err), 3)
+}
+
+func TestRolodexLocalFileSystem(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+
+	cf := datamodel.NewDocumentConfiguration()
+	cf.BasePath = "../../../test_specs"
+	cf.FileFilter = []string{"first.yaml", "second.yaml", "third.yaml"}
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.NoError(t, err)
+}
+
+func TestRolodexLocalFileSystem_ProvideNonRolodexFS(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+	baseDir := "../../../test_specs"
+
+	cf := datamodel.NewDocumentConfiguration()
+	cf.BasePath = baseDir
+	cf.FileFilter = []string{"first.yaml", "second.yaml", "third.yaml"}
+	cf.LocalFS = os.DirFS(baseDir)
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.Error(t, err)
+}
+
+func TestRolodexLocalFileSystem_ProvideRolodexFS(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+	baseDir := "../../../test_specs"
+	cf := datamodel.NewDocumentConfiguration()
+	cf.BasePath = baseDir
+	cf.FileFilter = []string{"first.yaml", "second.yaml", "third.yaml"}
+
+	localFS, lErr := index.NewLocalFSWithConfig(&index.LocalFSConfig{
+		BaseDirectory: baseDir,
+		DirFS:         os.DirFS(baseDir),
+		FileFilters:   cf.FileFilter,
+	})
+	cf.LocalFS = localFS
+
+	assert.NoError(t, lErr)
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.NoError(t, err)
+}
+
+func TestRolodexLocalFileSystem_BadPath(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+
+	cf := datamodel.NewDocumentConfiguration()
+	cf.BasePath = "/NOWHERE"
+	cf.FileFilter = []string{"first.yaml", "second.yaml", "third.yaml"}
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.Error(t, err)
+}
+
+func TestRolodexRemoteFileSystem(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+
+	cf := datamodel.NewDocumentConfiguration()
+	cf.Logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	baseUrl := "https://raw.githubusercontent.com/pb33f/libopenapi/main/test_specs"
+	u, _ := url.Parse(baseUrl)
+	cf.BaseURL = u
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.NoError(t, err)
+}
+
+func TestRolodexRemoteFileSystem_BadBase(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+
+	cf := datamodel.NewDocumentConfiguration()
+
+	baseUrl := "https://no-no-this-will-not-work-it-just-will-not-get-the-job-done-mate.com"
+	u, _ := url.Parse(baseUrl)
+	cf.BaseURL = u
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.Error(t, err)
+}
+
+func TestRolodexRemoteFileSystem_CustomRemote_NoBaseURL(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+
+	cf := datamodel.NewDocumentConfiguration()
+	cf.RemoteFS, _ = index.NewRemoteFSWithConfig(&index.SpecIndexConfig{})
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.Error(t, err)
+}
+
+func TestRolodexRemoteFileSystem_CustomHttpHandler(t *testing.T) {
+	data, _ := os.ReadFile("../../../test_specs/first.yaml")
+	info, _ := datamodel.ExtractSpecInfo(data)
+
+	cf := datamodel.NewDocumentConfiguration()
+	cf.RemoteURLHandler = http.Get
+	baseUrl := "https://no-no-this-will-not-work-it-just-will-not-get-the-job-done-mate.com"
+	u, _ := url.Parse(baseUrl)
+	cf.BaseURL = u
+
+	pizza := func(url string) (resp *http.Response, err error) {
+		return nil, nil
+	}
+	cf.RemoteURLHandler = pizza
+	lDoc, err := CreateDocumentFromConfig(info, cf)
+	assert.NotNil(t, lDoc)
+	assert.Error(t, err)
 }
 
 func TestCircularReference_IgnoreArray(t *testing.T) {
@@ -97,12 +203,10 @@ components:
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(spec))
 	circDoc, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:           false,
-		AllowRemoteReferences:         false,
 		IgnoreArrayCircularReferences: true,
 	})
 	assert.NotNil(t, circDoc)
-	assert.Len(t, err, 0)
+	assert.Len(t, utils.UnwrapErrors(err), 0)
 }
 
 func TestCircularReference_IgnorePoly(t *testing.T) {
@@ -125,12 +229,10 @@ components:
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(spec))
 	circDoc, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:                 false,
-		AllowRemoteReferences:               false,
 		IgnorePolymorphicCircularReferences: true,
 	})
 	assert.NotNil(t, circDoc)
-	assert.Len(t, err, 0)
+	assert.Len(t, utils.UnwrapErrors(err), 0)
 }
 
 func BenchmarkCreateDocument_Stripe(b *testing.B) {
@@ -138,10 +240,7 @@ func BenchmarkCreateDocument_Stripe(b *testing.B) {
 	info, _ := datamodel.ExtractSpecInfo(data)
 
 	for i := 0; i < b.N; i++ {
-		_, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-			AllowFileReferences:   false,
-			AllowRemoteReferences: false,
-		})
+		_, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
 		if err != nil {
 			panic("this should not error")
 		}
@@ -152,10 +251,7 @@ func BenchmarkCreateDocument_Petstore(b *testing.B) {
 	data, _ := os.ReadFile("../../../test_specs/petstorev3.json")
 	info, _ := datamodel.ExtractSpecInfo(data)
 	for i := 0; i < b.N; i++ {
-		_, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-			AllowFileReferences:   false,
-			AllowRemoteReferences: false,
-		})
+		_, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
 		if err != nil {
 			panic("this should not error")
 		}
@@ -165,12 +261,8 @@ func BenchmarkCreateDocument_Petstore(b *testing.B) {
 func TestCreateDocumentStripe(t *testing.T) {
 	data, _ := os.ReadFile("../../../test_specs/stripe.yaml")
 	info, _ := datamodel.ExtractSpecInfo(data)
-	d, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-		BasePath:              "/here",
-	})
-	assert.Len(t, err, 3)
+	d, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Len(t, utils.UnwrapErrors(err), 1)
 
 	assert.Equal(t, "3.0.0", d.Version.Value)
 	assert.Equal(t, "Stripe API", d.Info.Value.Title.Value)
@@ -183,7 +275,7 @@ func TestCreateDocument(t *testing.T) {
 	assert.Equal(t, "Burger Shop", doc.Info.Value.Title.Value)
 	assert.NotEmpty(t, doc.Info.Value.Title.Value)
 	assert.Equal(t, "https://pb33f.io/schema", doc.JsonSchemaDialect.Value)
-	assert.Len(t, doc.GetExtensions(), 1)
+	assert.Equal(t, 1, orderedmap.Len(doc.GetExtensions()))
 }
 
 //func TestCreateDocumentHash(t *testing.T) {
@@ -218,25 +310,23 @@ func TestCreateDocument_Info(t *testing.T) {
 
 func TestCreateDocument_WebHooks(t *testing.T) {
 	initTest()
-	assert.Len(t, doc.Webhooks.Value, 1)
-	for i := range doc.Webhooks.Value {
+	assert.Equal(t, 1, orderedmap.Len(doc.Webhooks.Value))
+	for pair := orderedmap.First(doc.Webhooks.Value); pair != nil; pair = pair.Next() {
 		// a nice deep model should be available for us.
 		assert.Equal(t, "Information about a new burger",
-			doc.Webhooks.Value[i].Value.Post.Value.RequestBody.Value.Description.Value)
+			pair.Value().Value.Post.Value.RequestBody.Value.Description.Value)
 	}
 }
 
 func TestCreateDocument_WebHooks_Error(t *testing.T) {
-	yml := `webhooks:
+	yml := `openapi: 3.0
+webhooks:
       $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Len(t, utils.UnwrapErrors(err), 1)
 }
 
 func TestCreateDocument_Servers(t *testing.T) {
@@ -248,7 +338,7 @@ func TestCreateDocument_Servers(t *testing.T) {
 	// server 1
 	assert.Equal(t, "{scheme}://api.pb33f.io", server1.URL.Value)
 	assert.NotEmpty(t, server1.Description.Value)
-	assert.Len(t, server1.Variables.Value, 1)
+	assert.Equal(t, 1, orderedmap.Len(server1.Variables.Value))
 	assert.Len(t, server1.FindVariable("scheme").Value.Enum, 2)
 	assert.Equal(t, server1.FindVariable("scheme").Value.Default.Value, "https")
 	assert.NotEmpty(t, server1.FindVariable("scheme").Value.Description.Value)
@@ -256,7 +346,7 @@ func TestCreateDocument_Servers(t *testing.T) {
 	// server 2
 	assert.Equal(t, "https://{domain}.{host}.com", server2.URL.Value)
 	assert.NotEmpty(t, server2.Description.Value)
-	assert.Len(t, server2.Variables.Value, 2)
+	assert.Equal(t, 2, orderedmap.Len(server2.Variables.Value))
 	assert.Equal(t, "api", server2.FindVariable("domain").Value.Default.Value)
 	assert.NotEmpty(t, server2.FindVariable("domain").Value.Description.Value)
 	assert.NotEmpty(t, server2.FindVariable("host").Value.Description.Value)
@@ -274,28 +364,45 @@ func TestCreateDocument_Tags(t *testing.T) {
 	assert.NotNil(t, doc.Tags.Value[0].Value.ExternalDocs.Value)
 	assert.Equal(t, "https://pb33f.io", doc.Tags.Value[0].Value.ExternalDocs.Value.URL.Value)
 	assert.NotEmpty(t, doc.Tags.Value[0].Value.ExternalDocs.Value.URL.Value)
-	assert.Len(t, doc.Tags.Value[0].Value.Extensions, 7)
+	assert.Equal(t, 7, orderedmap.Len(doc.Tags.Value[0].Value.Extensions))
 
-	for key, extension := range doc.Tags.Value[0].Value.Extensions {
+	for pair := orderedmap.First(doc.Tags.Value[0].Value.Extensions); pair != nil; pair = pair.Next() {
+		key := pair.Key()
+		extension := pair.Value()
+
+		var val any
+		_ = extension.Value.Decode(&val)
 		switch key.Value {
 		case "x-internal-ting":
-			assert.Equal(t, "somethingSpecial", extension.Value)
+			assert.Equal(t, "somethingSpecial", val)
 		case "x-internal-tong":
-			assert.Equal(t, int64(1), extension.Value)
+			assert.Equal(t, 1, val)
 		case "x-internal-tang":
-			assert.Equal(t, 1.2, extension.Value)
+			assert.Equal(t, 1.2, val)
 		case "x-internal-tung":
-			assert.Equal(t, true, extension.Value)
+			assert.Equal(t, true, val)
 		case "x-internal-arr":
-			assert.Len(t, extension.Value, 2)
-			assert.Equal(t, "one", extension.Value.([]interface{})[0].(string))
+			var a []any
+			err := extension.Value.Decode(&a)
+			require.NoError(t, err)
+
+			assert.Len(t, a, 2)
+			assert.Equal(t, "one", a[0].(string))
 		case "x-internal-arrmap":
-			assert.Len(t, extension.Value, 2)
-			assert.Equal(t, "now", extension.Value.([]interface{})[0].(map[string]interface{})["what"])
+			var a []any
+			err := extension.Value.Decode(&a)
+			require.NoError(t, err)
+
+			assert.Len(t, a, 2)
+			assert.Equal(t, "now", a[0].(map[string]interface{})["what"])
 		case "x-something-else":
+			var m map[string]any
+			err := extension.Value.Decode(&m)
+			require.NoError(t, err)
+
 			// crazy times in the upside down. this API should be avoided for the higher up use cases.
 			// this is why we will need a higher level API to this model, this looks cool and all, but dude.
-			assert.Equal(t, "now?", extension.Value.(map[string]interface{})["ok"].([]interface{})[0].(map[string]interface{})["what"])
+			assert.Equal(t, "now?", m["ok"].([]interface{})[0].(map[string]interface{})["what"])
 		}
 	}
 
@@ -305,12 +412,12 @@ func TestCreateDocument_Tags(t *testing.T) {
 	assert.NotNil(t, doc.Tags.Value[1].Value.ExternalDocs.Value)
 	assert.Equal(t, "https://pb33f.io", doc.Tags.Value[1].Value.ExternalDocs.Value.URL.Value)
 	assert.NotEmpty(t, doc.Tags.Value[1].Value.ExternalDocs.Value.URL.Value)
-	assert.Len(t, doc.Tags.Value[1].Value.Extensions, 0)
+	assert.Equal(t, 0, orderedmap.Len(doc.Tags.Value[1].Value.Extensions))
 }
 
 func TestCreateDocument_Paths(t *testing.T) {
 	initTest()
-	assert.Len(t, doc.Paths.Value.PathItems, 5)
+	assert.Equal(t, 5, orderedmap.Len(doc.Paths.Value.PathItems))
 	burgerId := doc.Paths.Value.FindPath("/burgers/{burgerId}")
 	assert.NotNil(t, burgerId)
 	assert.Len(t, burgerId.Value.Get.Value.Parameters.Value, 2)
@@ -318,15 +425,21 @@ func TestCreateDocument_Paths(t *testing.T) {
 	assert.Equal(t, "burgerHeader", param.Value.Name.Value)
 	prop := param.Value.Schema.Value.Schema().FindProperty("burgerTheme").Value
 	assert.Equal(t, "something about a theme goes in here?", prop.Schema().Description.Value)
-	assert.Equal(t, "big-mac", param.Value.Example.Value)
+
+	var paramExample string
+	_ = param.GetValue().Example.Value.Decode(&paramExample)
+	assert.Equal(t, "big-mac", paramExample)
 
 	// check content
 	pContent := param.Value.FindContent("application/json")
-	assert.Equal(t, "somethingNice", pContent.Value.Example.Value)
+
+	var contentExample string
+	_ = pContent.Value.Example.Value.Decode(&contentExample)
+	assert.Equal(t, "somethingNice", contentExample)
 
 	encoding := pContent.Value.FindPropertyEncoding("burgerTheme")
 	assert.NotNil(t, encoding.Value)
-	assert.Len(t, encoding.Value.Headers.Value, 1)
+	assert.Equal(t, 1, orderedmap.Len(encoding.Value.Headers.Value))
 
 	header := encoding.Value.FindHeader("someHeader")
 	assert.NotNil(t, header.Value)
@@ -348,45 +461,45 @@ func TestCreateDocument_Paths(t *testing.T) {
 	content := requestBody.FindContent("application/json").Value
 
 	assert.NotNil(t, content)
-	assert.Len(t, content.Schema.Value.Schema().Properties.Value, 4)
-	assert.Len(t, content.GetAllExamples(), 2)
+	assert.Equal(t, 4, orderedmap.Len(content.Schema.Value.Schema().Properties.Value))
+	assert.Equal(t, 2, orderedmap.Len(content.GetAllExamples()))
 
 	ex := content.FindExample("pbjBurger")
 	assert.NotNil(t, ex.Value)
 	assert.NotEmpty(t, ex.Value.Summary.Value)
 	assert.NotNil(t, ex.Value.Value.Value)
 
-	if n, ok := ex.Value.Value.Value.(map[string]interface{}); ok {
-		assert.Len(t, n, 2)
-		assert.Equal(t, 3, n["numPatties"])
-	} else {
-		assert.Fail(t, "should easily be convertable. something changed!")
-	}
+	var pbjBurgerExample map[string]any
+	err := ex.Value.Value.Value.Decode(&pbjBurgerExample)
+	require.NoError(t, err)
+
+	assert.Len(t, pbjBurgerExample, 2)
+	assert.Equal(t, 3, pbjBurgerExample["numPatties"])
 
 	cb := content.FindExample("cakeBurger")
 	assert.NotNil(t, cb.Value)
 	assert.NotEmpty(t, cb.Value.Summary.Value)
 	assert.NotNil(t, cb.Value.Value.Value)
 
-	if n, ok := cb.Value.Value.Value.(map[string]interface{}); ok {
-		assert.Len(t, n, 2)
-		assert.Equal(t, "Chocolate Cake Burger", n["name"])
-		assert.Equal(t, 5, n["numPatties"])
-	} else {
-		assert.Fail(t, "should easily be convertable. something changed!")
-	}
+	var cakeBurgerExample map[string]any
+	err = cb.Value.Value.Value.Decode(&cakeBurgerExample)
+	require.NoError(t, err)
+
+	assert.Len(t, cakeBurgerExample, 2)
+	assert.Equal(t, "Chocolate Cake Burger", cakeBurgerExample["name"])
+	assert.Equal(t, 5, cakeBurgerExample["numPatties"])
 
 	// check responses
 	responses := burgersPost.Responses.Value
 	assert.NotNil(t, responses)
-	assert.Len(t, responses.Codes, 3)
+	assert.Equal(t, 3, orderedmap.Len(responses.Codes))
 
 	okCode := responses.FindResponseByCode("200")
 	assert.NotNil(t, okCode.Value)
 	assert.Equal(t, "A tasty burger for you to eat.", okCode.Value.Description.Value)
 
 	// check headers are populated
-	assert.Len(t, okCode.Value.Headers.Value, 1)
+	assert.Equal(t, 1, orderedmap.Len(okCode.Value.Headers.Value))
 	okheader := okCode.Value.FindHeader("UseOil")
 	assert.NotNil(t, okheader.Value)
 	assert.Equal(t, "this is a header example for UseOil", okheader.Value.Description.Value)
@@ -401,18 +514,18 @@ func TestCreateDocument_Paths(t *testing.T) {
 	assert.NotNil(t, respExample.Value)
 	assert.NotNil(t, respExample.Value.Value.Value)
 
-	if n, ok := respExample.Value.Value.Value.(map[string]interface{}); ok {
-		assert.Len(t, n, 2)
-		assert.Equal(t, "Quarter Pounder with Cheese", n["name"])
-		assert.Equal(t, 1, n["numPatties"])
-	} else {
-		assert.Fail(t, "should easily be convertable. something changed!")
-	}
+	var quarterPounderExample map[string]any
+	err = respExample.Value.Value.Value.Decode(&quarterPounderExample)
+	require.NoError(t, err)
+
+	assert.Len(t, quarterPounderExample, 2)
+	assert.Equal(t, "Quarter Pounder with Cheese", quarterPounderExample["name"])
+	assert.Equal(t, 1, quarterPounderExample["numPatties"])
 
 	// check links
 	links := okCode.Value.Links
 	assert.NotNil(t, links.Value)
-	assert.Len(t, links.Value, 2)
+	assert.Equal(t, 2, orderedmap.Len(links.Value))
 	assert.Equal(t, "locateBurger", okCode.Value.FindLink("LocateBurger").Value.OperationId.Value)
 
 	locateBurger := okCode.Value.FindLink("LocateBurger").Value
@@ -437,7 +550,7 @@ func TestCreateDocument_Components_Schemas(t *testing.T) {
 
 	components := doc.Components.Value
 	assert.NotNil(t, components)
-	assert.Len(t, components.Schemas.Value, 6)
+	assert.Equal(t, 6, components.Schemas.Value.Len())
 
 	burger := components.FindSchema("Burger").Value
 	assert.NotNil(t, burger)
@@ -451,7 +564,7 @@ func TestCreateDocument_Components_Schemas(t *testing.T) {
 	fries := components.FindSchema("Fries")
 	assert.NotNil(t, fries.Value)
 
-	assert.Len(t, fries.Value.Schema().Properties.Value, 3)
+	assert.Equal(t, 3, fries.Value.Schema().Properties.Value.Len())
 	p := fries.Value.Schema().FindProperty("favoriteDrink")
 	assert.Equal(t, "a frosty cold beverage can be coke or sprite",
 		p.Value.Schema().Description.Value)
@@ -461,7 +574,7 @@ func TestCreateDocument_Components_SecuritySchemes(t *testing.T) {
 	initTest()
 	components := doc.Components.Value
 	securitySchemes := components.SecuritySchemes.Value
-	assert.Len(t, securitySchemes, 3)
+	assert.Equal(t, 3, securitySchemes.Len())
 
 	apiKey := components.FindSecurityScheme("APIKeyScheme").Value
 	assert.NotNil(t, apiKey)
@@ -489,19 +602,19 @@ func TestCreateDocument_Components_Responses(t *testing.T) {
 	initTest()
 	components := doc.Components.Value
 	responses := components.Responses.Value
-	assert.Len(t, responses, 1)
+	assert.Equal(t, 1, responses.Len())
 
 	dressingResponse := components.FindResponse("DressingResponse")
 	assert.NotNil(t, dressingResponse.Value)
 	assert.Equal(t, "all the dressings for a burger.", dressingResponse.Value.Description.Value)
-	assert.Len(t, dressingResponse.Value.Content.Value, 1)
+	assert.Equal(t, 1, dressingResponse.Value.Content.Value.Len())
 }
 
 func TestCreateDocument_Components_Examples(t *testing.T) {
 	initTest()
 	components := doc.Components.Value
 	examples := components.Examples.Value
-	assert.Len(t, examples, 1)
+	assert.Equal(t, 1, examples.Len())
 
 	quarterPounder := components.FindExample("QuarterPounder")
 	assert.NotNil(t, quarterPounder.Value)
@@ -513,19 +626,19 @@ func TestCreateDocument_Components_RequestBodies(t *testing.T) {
 	initTest()
 	components := doc.Components.Value
 	requestBodies := components.RequestBodies.Value
-	assert.Len(t, requestBodies, 1)
+	assert.Equal(t, 1, requestBodies.Len())
 
 	burgerRequest := components.FindRequestBody("BurgerRequest")
 	assert.NotNil(t, burgerRequest.Value)
 	assert.Equal(t, "Give us the new burger!", burgerRequest.Value.Description.Value)
-	assert.Len(t, burgerRequest.Value.Content.Value, 1)
+	assert.Equal(t, 1, burgerRequest.Value.Content.Value.Len())
 }
 
 func TestCreateDocument_Components_Headers(t *testing.T) {
 	initTest()
 	components := doc.Components.Value
 	headers := components.Headers.Value
-	assert.Len(t, headers, 1)
+	assert.Equal(t, 1, headers.Len())
 
 	useOil := components.FindHeader("UseOil")
 	assert.NotNil(t, useOil.Value)
@@ -537,7 +650,7 @@ func TestCreateDocument_Components_Links(t *testing.T) {
 	initTest()
 	components := doc.Components.Value
 	links := components.Links.Value
-	assert.Len(t, links, 2)
+	assert.Equal(t, 2, links.Len())
 
 	locateBurger := components.FindLink("LocateBurger")
 	assert.NotNil(t, locateBurger.Value)
@@ -558,11 +671,11 @@ func TestCreateDocument_Doc_Security(t *testing.T) {
 func TestCreateDocument_Callbacks(t *testing.T) {
 	initTest()
 	callbacks := doc.Components.Value.Callbacks.Value
-	assert.Len(t, callbacks, 1)
+	assert.Equal(t, 1, callbacks.Len())
 
 	bCallback := doc.Components.Value.FindCallback("BurgerCallback")
 	assert.NotNil(t, bCallback.Value)
-	assert.Len(t, callbacks, 1)
+	assert.Equal(t, 1, callbacks.Len())
 
 	exp := bCallback.Value.FindExpression("{$request.query.queryUrl}")
 	assert.NotNil(t, exp.Value)
@@ -610,12 +723,9 @@ components:
           $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	doc, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 0)
+	var err error
+	doc, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.NoError(t, err)
 
 	ob := doc.Components.Value.FindSchema("bork").Value
 	ob.Schema()
@@ -629,12 +739,10 @@ webhooks:
     $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	doc, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	doc, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t, "flat map build failed: reference cannot be found: reference at line 4, column 5 is empty, it cannot be resolved",
+		err.Error())
 }
 
 func TestCreateDocument_Components_Error_Extract(t *testing.T) {
@@ -645,12 +753,9 @@ components:
       $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t, "reference at line 5, column 7 is empty, it cannot be resolved", err.Error())
 }
 
 func TestCreateDocument_Paths_Errors(t *testing.T) {
@@ -660,12 +765,10 @@ paths:
     $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t,
+		"path item build failed: cannot find reference: '' at line 4, col 10", err.Error())
 }
 
 func TestCreateDocument_Tags_Errors(t *testing.T) {
@@ -674,12 +777,10 @@ tags:
   - $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t,
+		"object extraction failed: reference at line 3, column 5 is empty, it cannot be resolved", err.Error())
 }
 
 func TestCreateDocument_Security_Error(t *testing.T) {
@@ -688,12 +789,11 @@ security:
   $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t,
+		"array build failed: reference cannot be found: reference at line 3, column 3 is empty, it cannot be resolved",
+		err.Error())
 }
 
 func TestCreateDocument_ExternalDoc_Error(t *testing.T) {
@@ -702,12 +802,9 @@ externalDocs:
   $ref: #bork`
 
 	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
-	var err []error
-	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-	assert.Len(t, err, 1)
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t, "object extraction failed: reference at line 3, column 3 is empty, it cannot be resolved", err.Error())
 }
 
 func TestCreateDocument_YamlAnchor(t *testing.T) {
@@ -718,16 +815,9 @@ func TestCreateDocument_YamlAnchor(t *testing.T) {
 	info, _ := datamodel.ExtractSpecInfo(anchorDocument)
 
 	// build low-level document model
-	document, errors := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-
-	// if something went wrong, a slice of errors is returned
-	if len(errors) > 0 {
-		for i := range errors {
-			fmt.Printf("error: %s\n", errors[i].Error())
-		}
+	document, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
 		panic("cannot build document")
 	}
 
@@ -750,7 +840,7 @@ func TestCreateDocument_YamlAnchor(t *testing.T) {
 	assert.NotNil(t, postParams)
 	assert.Equal(t, 1, len(getParams))
 	assert.Equal(t, 1, len(postParams))
-	assert.Equal(t, getParams, postParams)
+	assert.Equal(t, getParams[0].ValueNode, postParams[0].ValueNode)
 
 	// check post request body
 	responses := examplePath.GetValue().Get.GetValue().GetResponses().Value.(*Responses)
@@ -759,8 +849,19 @@ func TestCreateDocument_YamlAnchor(t *testing.T) {
 	assert.NotNil(t, jsonGet)
 
 	// Should this work? It doesn't
-	// postJsonType := examplePath.GetValue().Post.GetValue().RequestBody.GetValue().FindContent("application/json")
-	// assert.NotNil(t, postJsonType)
+	// update from quobix 10/14/2023: It does now!
+	postJsonType := examplePath.GetValue().Post.GetValue().RequestBody.GetValue().FindContent("application/json")
+	assert.NotNil(t, postJsonType)
+}
+
+func TestCreateDocument_NotOpenAPI_EnforcedDocCheck(t *testing.T) {
+	yml := `notadoc: no`
+
+	info, _ := datamodel.ExtractSpecInfo([]byte(yml))
+	var err error
+	_, err = CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	assert.Equal(t,
+		"no openapi version/tag found, cannot create document", err.Error())
 }
 
 func ExampleCreateDocument() {
@@ -773,16 +874,9 @@ func ExampleCreateDocument() {
 	info, _ := datamodel.ExtractSpecInfo(petstoreBytes)
 
 	// build low-level document model
-	document, errors := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{
-		AllowFileReferences:   false,
-		AllowRemoteReferences: false,
-	})
-
-	// if something went wrong, a slice of errors is returned
-	if len(errors) > 0 {
-		for i := range errors {
-			fmt.Printf("error: %s\n", errors[i].Error())
-		}
+	document, err := CreateDocumentFromConfig(info, &datamodel.DocumentConfiguration{})
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
 		panic("cannot build document")
 	}
 

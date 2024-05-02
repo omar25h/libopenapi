@@ -4,20 +4,22 @@
 package v3
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestCallback_Build_Success(t *testing.T) {
-
 	yml := `'{$request.query.queryUrl}':
     post:
       requestBody:
         description: Callback payload
-        content: 
+        content:
           'application/json':
             schema:
               type: string
@@ -33,15 +35,13 @@ func TestCallback_Build_Success(t *testing.T) {
 	err := low.BuildModel(rootNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, rootNode.Content[0], nil)
+	err = n.Build(context.Background(), nil, rootNode.Content[0], nil)
 	assert.NoError(t, err)
 
-	assert.Len(t, n.Expression.Value, 1)
-
+	assert.Equal(t, 1, orderedmap.Len(n.Expression))
 }
 
 func TestCallback_Build_Error(t *testing.T) {
-
 	// first we need an index.
 	doc := `components:
   schemas:
@@ -65,13 +65,11 @@ func TestCallback_Build_Error(t *testing.T) {
 	err := low.BuildModel(rootNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, rootNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, rootNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestCallback_Build_Using_InlineRef(t *testing.T) {
-
 	// first we need an index.
 	doc := `components:
   schemas:
@@ -100,19 +98,17 @@ func TestCallback_Build_Using_InlineRef(t *testing.T) {
 	err := low.BuildModel(rootNode.Content[0], &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, rootNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, rootNode.Content[0], idx)
 	assert.NoError(t, err)
-	assert.Len(t, n.Expression.Value, 1)
+	assert.Equal(t, 1, orderedmap.Len(n.Expression))
 
 	exp := n.FindExpression("{$request.query.queryUrl}")
 	assert.NotNil(t, exp.Value)
 	assert.NotNil(t, exp.Value.Post.Value)
 	assert.Equal(t, "this is something", exp.Value.Post.Value.RequestBody.Value.Description.Value)
-
 }
 
 func TestCallback_Hash(t *testing.T) {
-
 	yml := `x-seed: grow
 pizza:
   description: cheesy
@@ -128,7 +124,7 @@ x-weed: loved`
 
 	var n Callback
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	yml2 := `burgers:
   description: tasty!
@@ -145,10 +141,9 @@ beer:
 
 	var n2 Callback
 	_ = low.BuildModel(idxNode2.Content[0], &n2)
-	_ = n2.Build(nil, idxNode2.Content[0], idx2)
+	_ = n2.Build(context.Background(), nil, idxNode2.Content[0], idx2)
 
 	// hash
 	assert.Equal(t, n.Hash(), n2.Hash())
-	assert.Len(t, n.GetExtensions(), 2)
-
+	assert.Equal(t, 2, orderedmap.Len(n.GetExtensions()))
 }

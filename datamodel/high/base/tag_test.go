@@ -4,6 +4,7 @@
 package base
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,7 +16,6 @@ import (
 )
 
 func TestNewTag(t *testing.T) {
-
 	var cNode yaml.Node
 
 	yml := `name: chicken
@@ -28,14 +28,17 @@ x-hack: code`
 
 	var lowTag lowbase.Tag
 	_ = lowmodel.BuildModel(cNode.Content[0], &lowTag)
-	_ = lowTag.Build(nil, cNode.Content[0], nil)
+	_ = lowTag.Build(context.Background(), nil, cNode.Content[0], nil)
 
 	highTag := NewTag(&lowTag)
+
+	var xHack string
+	_ = highTag.Extensions.GetOrZero("x-hack").Decode(&xHack)
 
 	assert.Equal(t, "chicken", highTag.Name)
 	assert.Equal(t, "nuggets", highTag.Description)
 	assert.Equal(t, "https://pb33f.io", highTag.ExternalDocs.URL)
-	assert.Equal(t, "code", highTag.Extensions["x-hack"])
+	assert.Equal(t, "code", xHack)
 
 	wentLow := highTag.GoLow()
 	assert.Equal(t, 5, wentLow.FindExtension("x-hack").ValueNode.Line)
@@ -44,11 +47,9 @@ x-hack: code`
 	// render the tag as YAML
 	highTagBytes, _ := highTag.Render()
 	assert.Equal(t, strings.TrimSpace(string(highTagBytes)), yml)
-
 }
 
 func TestTag_RenderInline(t *testing.T) {
-
 	tag := &Tag{
 		Name: "cake",
 	}
@@ -75,7 +76,7 @@ x-hack: code`
 	// build out the low-level model
 	var lowTag lowbase.Tag
 	_ = lowmodel.BuildModel(node.Content[0], &lowTag)
-	_ = lowTag.Build(nil, node.Content[0], nil)
+	_ = lowTag.Build(context.Background(), nil, node.Content[0], nil)
 
 	// build the high level tag
 	highTag := NewTag(&lowTag)

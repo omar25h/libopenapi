@@ -4,10 +4,12 @@
 package base
 
 import (
+	"context"
 	"fmt"
-	"github.com/pb33f/libopenapi/datamodel"
 	"strings"
 	"testing"
+
+	"github.com/pb33f/libopenapi/datamodel"
 
 	"github.com/pb33f/libopenapi/datamodel/low"
 	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
@@ -50,7 +52,7 @@ func TestNewSchemaProxy(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(yml), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], idx)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -91,7 +93,7 @@ func TestNewSchemaProxyRender(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(yml), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], idx)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -264,13 +266,14 @@ maxItems: 20
 minItems: 10
 maxProperties: 30
 minProperties: 1
-$anchor: anchor`
+$anchor: anchor
+$schema: https://example.com/custom-json-schema-dialect`
 
 	var compNode yaml.Node
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -299,16 +302,17 @@ $anchor: anchor`
 	assert.Equal(t, "string", compiled.If.Schema().Type[0])
 	assert.Equal(t, "integer", compiled.Else.Schema().Type[0])
 	assert.Equal(t, "boolean", compiled.Then.Schema().Type[0])
-	assert.Equal(t, "string", compiled.PatternProperties["patternOne"].Schema().Type[0])
-	assert.Equal(t, "string", compiled.DependentSchemas["schemaOne"].Schema().Type[0])
+	assert.Equal(t, "string", compiled.PatternProperties.GetOrZero("patternOne").Schema().Type[0])
+	assert.Equal(t, "string", compiled.DependentSchemas.GetOrZero("schemaOne").Schema().Type[0])
 	assert.Equal(t, "string", compiled.PropertyNames.Schema().Type[0])
 	assert.Equal(t, "boolean", compiled.UnevaluatedItems.Schema().Type[0])
 	assert.Equal(t, "integer", compiled.UnevaluatedProperties.A.Schema().Type[0])
-	assert.True(t, compiled.ReadOnly)
-	assert.True(t, compiled.WriteOnly)
+	assert.True(t, *compiled.ReadOnly)
+	assert.True(t, *compiled.WriteOnly)
 	assert.True(t, *compiled.Deprecated)
 	assert.True(t, *compiled.Nullable)
 	assert.Equal(t, "anchor", compiled.Anchor)
+	assert.Equal(t, "https://example.com/custom-json-schema-dialect", compiled.SchemaTypeRef)
 
 	wentLow := compiled.GoLow()
 	assert.Equal(t, 125, wentLow.AdditionalProperties.ValueNode.Line)
@@ -316,7 +320,7 @@ $anchor: anchor`
 
 	// now render it out!
 	schemaBytes, _ := compiled.Render()
-	assert.Len(t, schemaBytes, 3417)
+	assert.Len(t, schemaBytes, 3473)
 }
 
 func TestSchemaObjectWithAllOfSequenceOrder(t *testing.T) {
@@ -344,7 +348,7 @@ func TestSchemaObjectWithAllOfSequenceOrder(t *testing.T) {
 	}
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -412,7 +416,7 @@ anyOf:
     anyOfB:
       type: string
       description: anyOfB description
-      example: 'anyOfBExp'    
+      example: 'anyOfBExp'
 not:
   type: object
   description: a not thing
@@ -424,7 +428,7 @@ not:
     notB:
       type: string
       description: notB description
-      example: 'notBExp'      
+      example: 'notBExp'
 items:
   type: object
   description: an items thing
@@ -450,7 +454,7 @@ properties:
       somethingBProp:
         exclusiveMinimum: 3
         exclusiveMaximum: 120
-        type: 
+        type:
          - string
          - null
         description: something b subprop
@@ -462,9 +466,9 @@ properties:
           attribute: true
           wrapped: false
           x-pizza: love
-    additionalProperties: 
+    additionalProperties:
         why: yes
-        thatIs: true    
+        thatIs: true
 additionalProperties:
   type: string
   description: nice
@@ -481,7 +485,7 @@ required: [cake, fish]`
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -496,9 +500,9 @@ required: [cake, fish]`
 	assert.Nil(t, schemaProxy.GetBuildError())
 
 	assert.True(t, compiled.ExclusiveMaximum.A)
-	assert.Equal(t, float64(123), compiled.Properties["somethingB"].Schema().ExclusiveMinimum.B)
-	assert.Equal(t, float64(334), compiled.Properties["somethingB"].Schema().ExclusiveMaximum.B)
-	assert.Len(t, compiled.Properties["somethingB"].Schema().Properties["somethingBProp"].Schema().Type, 2)
+	assert.Equal(t, float64(123), compiled.Properties.GetOrZero("somethingB").Schema().ExclusiveMinimum.B)
+	assert.Equal(t, float64(334), compiled.Properties.GetOrZero("somethingB").Schema().ExclusiveMaximum.B)
+	assert.Len(t, compiled.Properties.GetOrZero("somethingB").Schema().Properties.GetOrZero("somethingBProp").Schema().Type, 2)
 
 	assert.Equal(t, "nice", compiled.AdditionalProperties.A.Schema().Description)
 
@@ -537,7 +541,7 @@ func TestSchemaProxy_GoLow(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(ymlSchema), &node)
 
 	lowProxy := new(lowbase.SchemaProxy)
-	err := lowProxy.Build(nil, node.Content[0], idx)
+	err := lowProxy.Build(context.Background(), nil, node.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowRef := low.NodeReference[*lowbase.SchemaProxy]{
@@ -546,7 +550,7 @@ func TestSchemaProxy_GoLow(t *testing.T) {
 
 	sp := NewSchemaProxy(&lowRef)
 	assert.Equal(t, lowProxy, sp.GoLow())
-	assert.Equal(t, ref, sp.GoLow().GetSchemaReference())
+	assert.Equal(t, ref, sp.GoLow().GetReference())
 	assert.Equal(t, ref, sp.GoLow().GetReference())
 
 	spNil := NewSchemaProxy(nil)
@@ -562,7 +566,7 @@ func getHighSchema(t *testing.T, yml string) *Schema {
 	// build out the low-level model
 	var lowSchema lowbase.Schema
 	assert.NoError(t, low.BuildModel(node.Content[0], &lowSchema))
-	assert.NoError(t, lowSchema.Build(node.Content[0], nil))
+	assert.NoError(t, lowSchema.Build(context.Background(), node.Content[0], nil))
 
 	// build the high level model
 	return NewSchema(&lowSchema)
@@ -701,7 +705,14 @@ examples:
 `
 	highSchema := getHighSchema(t, yml)
 
-	assert.Equal(t, []any{int64(5), int64(10)}, highSchema.Examples)
+	examples := []any{}
+	for _, ex := range highSchema.Examples {
+		var v int64
+		assert.NoError(t, ex.Decode(&v))
+		examples = append(examples, v)
+	}
+
+	assert.Equal(t, []any{int64(5), int64(10)}, examples)
 }
 
 func ExampleNewSchema() {
@@ -723,13 +734,13 @@ properties:
 	// build out the low-level model
 	var lowSchema lowbase.Schema
 	_ = low.BuildModel(node.Content[0], &lowSchema)
-	_ = lowSchema.Build(node.Content[0], nil)
+	_ = lowSchema.Build(context.Background(), node.Content[0], nil)
 
 	// build the high level model
 	highSchema := NewSchema(&lowSchema)
 
 	// print out the description of 'aProperty'
-	fmt.Print(highSchema.Properties["aProperty"].Schema().Description)
+	fmt.Print(highSchema.Properties.GetOrZero("aProperty").Schema().Description)
 	// Output: this is an integer property
 }
 
@@ -752,7 +763,7 @@ properties:
 	// build out the low-level model
 	var lowSchema lowbase.SchemaProxy
 	_ = low.BuildModel(node.Content[0], &lowSchema)
-	_ = lowSchema.Build(nil, node.Content[0], nil)
+	_ = lowSchema.Build(context.Background(), nil, node.Content[0], nil)
 
 	// build the high level schema proxy
 	highSchema := NewSchemaProxy(&low.NodeReference[*lowbase.SchemaProxy]{
@@ -760,7 +771,7 @@ properties:
 	})
 
 	// print out the description of 'aProperty'
-	fmt.Print(highSchema.Schema().Properties["aProperty"].Schema().Description)
+	fmt.Print(highSchema.Schema().Properties.GetOrZero("aProperty").Schema().Description)
 	// Output: this is an integer property
 }
 
@@ -812,7 +823,7 @@ allOf:
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -875,7 +886,7 @@ items:
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -937,7 +948,7 @@ xml:
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -966,7 +977,7 @@ func TestNewSchemaProxy_RenderSchemaCheckDiscriminatorMappingOrder(t *testing.T)
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -989,7 +1000,7 @@ func TestNewSchemaProxy_CheckDefaultBooleanFalse(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -1012,7 +1023,7 @@ func TestNewSchemaProxy_RenderAdditionalPropertiesFalse(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -1056,7 +1067,7 @@ components:
 
 	sp := new(lowbase.SchemaProxy)
 
-	err := sp.Build(nil, compNode.Content[0], idx)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -1108,7 +1119,7 @@ components:
 
 	sp := new(lowbase.SchemaProxy)
 
-	err := sp.Build(nil, compNode.Content[0], idx)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -1121,7 +1132,7 @@ components:
 
 	// now render it out, it should be identical.
 	schemaBytes, _ := compiled.RenderInline()
-	assert.Len(t, schemaBytes, 585)
+	assert.Equal(t, "properties:\n    bigBank:\n        type: object\n        properties:\n            failure_balance_transaction:\n                allOf:\n                    - type: object\n                      properties:\n                        name:\n                            type: string\n                        price:\n                            type: number\n                      anyOf:\n                        - description: A balance transaction\n                anyOf:\n                    - maxLength: 5000\n                      type: string\n                    - description: A balance transaction\n", string(schemaBytes))
 }
 
 func TestUnevaluatedPropertiesBoolean_True(t *testing.T) {
@@ -1177,7 +1188,7 @@ properties:
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -1188,9 +1199,9 @@ properties:
 	schemaProxy := NewSchemaProxy(&lowproxy)
 	compiled := schemaProxy.Schema()
 
-	assert.Equal(t, []string{"string"}, compiled.Properties["additionalPropertiesSimpleSchema"].Schema().AdditionalProperties.A.Schema().Type)
-	assert.Equal(t, true, compiled.Properties["additionalPropertiesBool"].Schema().AdditionalProperties.B)
-	assert.Equal(t, []string{"string"}, compiled.Properties["additionalPropertiesAnyOf"].Schema().AdditionalProperties.A.Schema().AnyOf[0].Schema().Type)
+	assert.Equal(t, []string{"string"}, compiled.Properties.GetOrZero("additionalPropertiesSimpleSchema").Schema().AdditionalProperties.A.Schema().Type)
+	assert.Equal(t, true, compiled.Properties.GetOrZero("additionalPropertiesBool").Schema().AdditionalProperties.B)
+	assert.Equal(t, []string{"string"}, compiled.Properties.GetOrZero("additionalPropertiesAnyOf").Schema().AdditionalProperties.A.Schema().AnyOf[0].Schema().Type)
 }
 
 func TestSchema_RenderProxyWithConfig_3(t *testing.T) {
@@ -1200,7 +1211,7 @@ func TestSchema_RenderProxyWithConfig_3(t *testing.T) {
 	_ = yaml.Unmarshal([]byte(testSpec), &compNode)
 
 	sp := new(lowbase.SchemaProxy)
-	err := sp.Build(nil, compNode.Content[0], nil)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], nil)
 	assert.NoError(t, err)
 
 	config := index.CreateOpenAPIIndexConfig()
@@ -1234,7 +1245,7 @@ func TestSchema_RenderProxyWithConfig_Corrected_31(t *testing.T) {
 	}
 	idx := index.NewSpecIndexWithConfig(compNode.Content[0], config)
 
-	err := sp.Build(nil, compNode.Content[0], idx)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{
@@ -1251,7 +1262,6 @@ func TestSchema_RenderProxyWithConfig_Corrected_31(t *testing.T) {
 
 	schemaBytes, _ = compiled.RenderInline()
 	assert.Equal(t, testSpecCorrect, strings.TrimSpace(string(schemaBytes)))
-
 }
 
 func TestSchema_RenderProxyWithConfig_Corrected_3(t *testing.T) {
@@ -1268,7 +1278,7 @@ func TestSchema_RenderProxyWithConfig_Corrected_3(t *testing.T) {
 	}
 	idx := index.NewSpecIndexWithConfig(compNode.Content[0], config)
 
-	err := sp.Build(nil, compNode.Content[0], idx)
+	err := sp.Build(context.Background(), nil, compNode.Content[0], idx)
 	assert.NoError(t, err)
 
 	lowproxy := low.NodeReference[*lowbase.SchemaProxy]{

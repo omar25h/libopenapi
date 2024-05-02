@@ -4,17 +4,18 @@
 package base
 
 import (
-	"fmt"
-	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
-	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
+	"context"
 	"strings"
 	"testing"
+
+	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
+	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/orderedmap"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestNewExternalDoc(t *testing.T) {
-
 	var cNode yaml.Node
 
 	yml := `description: hack code
@@ -26,26 +27,27 @@ x-hack: code`
 	var lowExt lowbase.ExternalDoc
 	_ = lowmodel.BuildModel(cNode.Content[0], &lowExt)
 
-	_ = lowExt.Build(nil, cNode.Content[0], nil)
+	_ = lowExt.Build(context.Background(), nil, cNode.Content[0], nil)
 
 	highExt := NewExternalDoc(&lowExt)
 
+	var xHack string
+	_ = highExt.Extensions.GetOrZero("x-hack").Decode(&xHack)
+
 	assert.Equal(t, "hack code", highExt.Description)
 	assert.Equal(t, "https://pb33f.io", highExt.URL)
-	assert.Equal(t, "code", highExt.Extensions["x-hack"])
+	assert.Equal(t, "code", xHack)
 
 	wentLow := highExt.GoLow()
 	assert.Equal(t, 2, wentLow.URL.ValueNode.Line)
-	assert.Len(t, highExt.GetExtensions(), 1)
+	assert.Equal(t, 1, orderedmap.Len(highExt.GetExtensions()))
 
 	// render the high-level object as YAML
 	rendered, _ := highExt.Render()
 	assert.Equal(t, strings.TrimSpace(string(rendered)), yml)
-
 }
 
-func ExampleNewExternalDoc() {
-
+func TestExampleNewExternalDoc(t *testing.T) {
 	// create a new external documentation spec reference
 	// this can be YAML or JSON.
 	yml := `description: hack code docs
@@ -61,12 +63,13 @@ x-hack: code`
 	_ = lowmodel.BuildModel(node.Content[0], &lowExt)
 
 	// build out low-level properties (like extensions)
-	_ = lowExt.Build(nil, node.Content[0], nil)
+	_ = lowExt.Build(context.Background(), nil, node.Content[0], nil)
 
 	// create new high-level ExternalDoc
 	highExt := NewExternalDoc(&lowExt)
 
-	// print out a extension
-	fmt.Print(highExt.Extensions["x-hack"])
-	// Output: code
+	var xHack string
+	_ = highExt.Extensions.GetOrZero("x-hack").Decode(&xHack)
+
+	assert.Equal(t, "code", xHack)
 }

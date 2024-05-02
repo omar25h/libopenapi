@@ -4,16 +4,18 @@
 package v2
 
 import (
+	"context"
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/orderedmap"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestOperation_Build_ExternalDocs(t *testing.T) {
-
 	yml := `externalDocs:
   $ref: break`
 
@@ -26,13 +28,11 @@ func TestOperation_Build_ExternalDocs(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestOperation_Build_Params(t *testing.T) {
-
 	yml := `parameters:
   $ref: break`
 
@@ -45,13 +45,11 @@ func TestOperation_Build_Params(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestOperation_Build_Responses(t *testing.T) {
-
 	yml := `responses:
   $ref: break`
 
@@ -64,13 +62,11 @@ func TestOperation_Build_Responses(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestOperation_Build_Security(t *testing.T) {
-
 	yml := `security:
   $ref: break`
 
@@ -83,13 +79,11 @@ func TestOperation_Build_Security(t *testing.T) {
 	err := low.BuildModel(&idxNode, &n)
 	assert.NoError(t, err)
 
-	err = n.Build(nil, idxNode.Content[0], idx)
+	err = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 	assert.Error(t, err)
-
 }
 
 func TestOperation_Hash_n_Grab(t *testing.T) {
-
 	yml := `tags:
   - nice
   - hat
@@ -126,7 +120,7 @@ x-smoke: not for a while`
 
 	var n Operation
 	_ = low.BuildModel(idxNode.Content[0], &n)
-	_ = n.Build(nil, idxNode.Content[0], idx)
+	_ = n.Build(context.Background(), nil, idxNode.Content[0], idx)
 
 	yml2 := `summary: a nice day
 tags:
@@ -164,7 +158,7 @@ security:
 
 	var n2 Operation
 	_ = low.BuildModel(idxNode2.Content[0], &n2)
-	_ = n2.Build(nil, idxNode2.Content[0], idx2)
+	_ = n2.Build(context.Background(), nil, idxNode2.Content[0], idx2)
 
 	// hash
 	assert.Equal(t, n.Hash(), n2.Hash())
@@ -180,7 +174,7 @@ security:
 	assert.Equal(t, "theMagicCastle", n.GetOperationId().Value)
 	assert.Len(t, n.GetParameters().Value, 1)
 	assert.True(t, n.GetDeprecated().Value)
-	assert.Len(t, n.GetResponses().Value.(*Responses).Codes, 1)
+	assert.Equal(t, 1, orderedmap.Len(n.GetResponses().Value.(*Responses).Codes))
 	assert.Len(t, n.GetSecurity().Value, 1)
-	assert.Len(t, n.GetExtensions(), 1)
+	assert.Equal(t, 1, orderedmap.Len(n.GetExtensions()))
 }
